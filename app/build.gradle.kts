@@ -19,7 +19,7 @@ val vName = (versionProps["VERSION_NAME"] as? String) ?: "1.0"
 
 android {
   namespace = "com.abutorab.marks9b"
-  compileSdk = 36
+  compileSdk = 35
 
   defaultConfig {
     applicationId = "com.abutorab.marks9b"
@@ -39,6 +39,12 @@ android {
       keyAlias = System.getenv("KEY_ALIAS") ?: "upload"
       keyPassword = System.getenv("KEY_PASSWORD")
     }
+    create("debugConfig") {
+      storeFile = file("${rootDir}/debug.keystore")
+      storePassword = "android"
+      keyAlias = "androiddebugkey"
+      keyPassword = "android"
+    }
   }
 
   buildTypes {
@@ -50,6 +56,7 @@ android {
       signingConfig = signingConfigs.getByName("release")
     }
     debug {
+      signingConfig = signingConfigs.getByName("debugConfig")
     }
   }
   compileOptions {
