@@ -1,0 +1,109 @@
+name: Android Release Build
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Clean previous build outputs
+        run: rm -rf app/build/outputs/
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Install Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+          validate-wrappers: false
+
+      - name: Compute version
+        id: version
+        run: |
+          git fetch --tags --force
+          LATEST=$(git tag --list 'v*.*' --sort=-v:refname | head -n1)
+          echo "Latest tag found: '$LATEST'"
+          if [ -z "$LATEST" ]; then
+            MAJOR=1
+            MINOR=0
+          else
+            VER=${LATEST#v}
+            MAJOR=$(echo "$VER" | cut -d. -f1)
+            MINOR=$(echo "$VER" | cut -d. -f2)
+            MINOR=$((MINOR + 1))
+            if [ "$MINOR" -gt 9 ]; then
+              MINOR=0
+              MAJOR=$((MAJOR + 1))
+            fi
+          fi
+          NEW_NAME="${MAJOR}.${MINOR}"
+          CODE_COUNT=$(git tag --list 'v*.*' | wc -l)
+          NEW_CODE=$((CODE_COUNT + 1))
+          echo "code=$NEW_CODE" >> $GITHUB_OUTPUT
+          echo "name=$NEW_NAME" >> $GITHUB_OUTPUT
+          echo "tag=v$NEW_NAME" >> $GITHUB_OUTPUT
+          echo "FINAL computed: name=$NEW_NAME code=$NEW_CODE tag=v$NEW_NAME"
+
+      - name: Create .env file
+        run: echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" > .env
+
+      - name: Decode release keystore
+        run: |
+          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > release.keystore
+
+      - name: Build release APK
+        env:
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+          STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: gradle assembleRelease
+
+      - name: Find and rename APK
+        run: |
+          APK=$(find app/build/outputs/apk/release/ -name "*universal*.apk" -o -name "app-release.apk" | head -n1)
+          if [ -z "$APK" ]; then
+            APK=$(find app/build/outputs/apk/release/ -name "*.apk" | head -n1)
+          fi
+          echo "Found APK: $APK"
+          mv "$APK" app/build/outputs/apk/release/TeacherHub-${{ steps.version.outputs.tag }}.apk
+
+      - name: Upload APK as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TeacherHub-APK
+          path: app/build/outputs/apk/release/TeacherHub-${{ steps.version.outputs.tag }}.apk
+          retention-days: 30
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Teacher Hub ${{ steps.version.outputs.tag }}
+          body: |
+            📱 **Teacher Hub ${{ steps.version.outputs.tag }}**
+
+            **How to install:**
+            1. Download the APK file below
+            2. Open it on your Android phone
+            3. If asked, allow "Install from unknown sources"
+            4. Install and enjoy!
+
+            **Full Changelog**: https://github.com/Sh-ADN/Teacher-Hub/commits/${{ steps.version.outputs.tag }}
+          files: app/build/outputs/apk/release/TeacherHub-${{ steps.version.outputs.tag }}.apk

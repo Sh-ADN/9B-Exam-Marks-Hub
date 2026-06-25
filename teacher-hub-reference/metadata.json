@@ -1,0 +1,6 @@
+{
+  "name": "Teacher Hub",
+  "description": "Offline-first application for school teachers to manage student marks, calculate GPAs, and generate tabulation and marksheet views.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
