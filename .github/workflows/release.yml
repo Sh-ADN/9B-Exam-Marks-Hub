@@ -1,0 +1,88 @@
+name: Release APK
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+          validate-wrappers: false
+
+      - name: Increment Version
+        id: version
+        run: |
+          if [ ! -f version.properties ]; then
+            echo "VERSION_CODE=0" > version.properties
+            echo "VERSION_NAME=1.0" >> version.properties
+          fi
+          
+          # Read current values
+          V_CODE=$(grep VERSION_CODE version.properties | cut -d'=' -f2)
+          V_NAME=$(grep VERSION_NAME version.properties | cut -d'=' -f2)
+          
+          # Increment Code
+          NEW_CODE=$((V_CODE + 1))
+          
+          # Increment Name (e.g. 1.0 -> 1.1 -> 1.2 ... -> 1.9 -> 2.0)
+          MAJOR=$(echo $V_NAME | cut -d'.' -f1)
+          MINOR=$(echo $V_NAME | cut -d'.' -f2)
+          NEW_MINOR=$((MINOR + 1))
+          if [ $NEW_MINOR -ge 10 ]; then
+            MAJOR=$((MAJOR + 1))
+            NEW_MINOR=0
+          fi
+          NEW_NAME="$MAJOR.$NEW_MINOR"
+          
+          echo "VERSION_CODE=$NEW_CODE" > version.properties
+          echo "VERSION_NAME=$NEW_NAME" >> version.properties
+          
+          echo "version_code=$NEW_CODE" >> $GITHUB_OUTPUT
+          echo "version_name=$NEW_NAME" >> $GITHUB_OUTPUT
+          
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add version.properties
+          git commit -m "Bump version to $NEW_NAME ($NEW_CODE) [skip ci]" || echo "No changes to commit"
+          git push
+
+      - name: Decode Keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > app/release.jks
+
+      - name: Build Release APK
+        env:
+          KEYSTORE_PATH: release.jks
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: gradle assembleRelease
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version_name }}
+          name: Release v${{ steps.version.outputs.version_name }}
+          files: app/build/outputs/apk/release/*.apk
+          generate_release_notes: true
