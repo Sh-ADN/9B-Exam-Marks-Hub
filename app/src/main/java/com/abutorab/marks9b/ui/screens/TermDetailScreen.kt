@@ -118,9 +118,11 @@ fun StudentsTab(yearId: Int, viewModel: MarksViewModel, snackbarHostState: Snack
         }
 
         Column(modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp), horizontalAlignment = Alignment.End) {
-            SmallFloatingActionButton(onClick = { launcher.launch("*/*") }) {
-                Icon(androidx.compose.material.icons.Icons.Default.DateRange, contentDescription = "Upload CSV")
-            }
+            ExtendedFloatingActionButton(
+                onClick = { launcher.launch("*/*") },
+                text = { Text("CSV") },
+                icon = { }
+            )
             Spacer(Modifier.height(8.dp))
             FloatingActionButton(onClick = { showAddSheet = true }) {
                 Icon(Icons.Default.Add, contentDescription = "Add Student")
