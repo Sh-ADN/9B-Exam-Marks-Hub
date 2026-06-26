@@ -37,6 +37,14 @@ fun <T> SwipeToDeleteContainer(
         }
     )
 
+    // When item is re-inserted (e.g. via Undo), it might restore its saved dismissed state.
+    // This snaps it back to normal immediately upon entering the composition.
+    LaunchedEffect(Unit) {
+        if (dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
+            dismissState.snapTo(SwipeToDismissBoxValue.Settled)
+        }
+    }
+
     if (showDialog) {
         AlertDialog(
             onDismissRequest = {
@@ -48,10 +56,7 @@ fun <T> SwipeToDeleteContainer(
             confirmButton = {
                 TextButton(onClick = {
                     showDialog = false
-                    coroutineScope.launch {
-                        dismissState.reset()
-                        onDelete(item)
-                    }
+                    onDelete(item)
                 }) {
                     Text("Delete")
                 }
