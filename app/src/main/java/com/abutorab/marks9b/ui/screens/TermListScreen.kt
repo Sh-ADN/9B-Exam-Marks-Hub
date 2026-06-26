@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import com.abutorab.marks9b.data.local.entity.TermEntity
 import com.abutorab.marks9b.ui.MarksViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -23,8 +24,11 @@ fun TermListScreen(
 ) {
     val terms by viewModel.getTermsForYear(yearId).collectAsStateWithLifecycle(initialValue = emptyList())
     var showAddDialog by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Terms") },
@@ -47,7 +51,17 @@ fun TermListScreen(
             items(terms, key = { it.id }) { term ->
                 SwipeToDeleteContainer(
                     item = term,
-                    onDelete = { viewModel.deleteTerm(it) }
+                    confirmTitle = "Delete term?",
+                    confirmMessage = "This will permanently delete '${term.label}' and ALL its students and subjects. This cannot be undone.",
+                    onDelete = { 
+                        coroutineScope.launch {
+                            viewModel.snapshotAndDeleteTerm(it)
+                            val result = snackbarHostState.showSnackbar("Term deleted", "Undo", duration = SnackbarDuration.Short)
+                            if (result == SnackbarResult.ActionPerformed) {
+                                viewModel.undoLastDelete()
+                            }
+                        }
+                    }
                 ) {
                     ListItem(
                         headlineContent = { Text(term.label) },

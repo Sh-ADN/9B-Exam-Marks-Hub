@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.abutorab.marks9b.data.local.entity.*
 import com.abutorab.marks9b.ui.MarksViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -28,8 +29,11 @@ fun TermDetailScreen(
 ) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("Students", "Subjects")
+    val coroutineScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             Column {
                 TopAppBar(
@@ -53,9 +57,9 @@ fun TermDetailScreen(
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
             if (selectedTabIndex == 0) {
-                StudentsTab(termId = termId, viewModel = viewModel)
+                StudentsTab(termId = termId, viewModel = viewModel, snackbarHostState = snackbarHostState, coroutineScope = coroutineScope)
             } else {
-                SubjectsTab(termId = termId, viewModel = viewModel)
+                SubjectsTab(termId = termId, viewModel = viewModel, snackbarHostState = snackbarHostState, coroutineScope = coroutineScope)
             }
         }
     }
@@ -63,7 +67,7 @@ fun TermDetailScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StudentsTab(termId: Int, viewModel: MarksViewModel) {
+fun StudentsTab(termId: Int, viewModel: MarksViewModel, snackbarHostState: SnackbarHostState, coroutineScope: kotlinx.coroutines.CoroutineScope) {
     val students by viewModel.getStudentsForTerm(termId).collectAsStateWithLifecycle(initialValue = emptyList())
     var showAddSheet by remember { mutableStateOf(false) }
 
@@ -72,7 +76,17 @@ fun StudentsTab(termId: Int, viewModel: MarksViewModel) {
             items(students, key = { it.id }) { student ->
                 SwipeToDeleteContainer(
                     item = student,
-                    onDelete = { viewModel.deleteStudent(it) }
+                    confirmTitle = "Delete student?",
+                    confirmMessage = "Delete ${student.name} (Roll ${student.roll})?",
+                    onDelete = { 
+                        coroutineScope.launch {
+                            viewModel.snapshotAndDeleteStudent(it)
+                            val result = snackbarHostState.showSnackbar("Student deleted", "Undo", duration = SnackbarDuration.Short)
+                            if (result == SnackbarResult.ActionPerformed) {
+                                viewModel.undoLastDelete()
+                            }
+                        }
+                    }
                 ) {
                     ListItem(
                         headlineContent = { Text(student.name) },
@@ -103,7 +117,7 @@ fun StudentsTab(termId: Int, viewModel: MarksViewModel) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SubjectsTab(termId: Int, viewModel: MarksViewModel) {
+fun SubjectsTab(termId: Int, viewModel: MarksViewModel, snackbarHostState: SnackbarHostState, coroutineScope: kotlinx.coroutines.CoroutineScope) {
     val subjects by viewModel.getSubjectsForTerm(termId).collectAsStateWithLifecycle(initialValue = emptyList())
     var showAddSheet by remember { mutableStateOf(false) }
 
@@ -112,7 +126,17 @@ fun SubjectsTab(termId: Int, viewModel: MarksViewModel) {
             items(subjects, key = { it.id }) { subject ->
                 SwipeToDeleteContainer(
                     item = subject,
-                    onDelete = { viewModel.deleteSubject(it) }
+                    confirmTitle = "Delete subject?",
+                    confirmMessage = "Delete ${subject.name}?",
+                    onDelete = { 
+                        coroutineScope.launch {
+                            viewModel.snapshotAndDeleteSubject(it)
+                            val result = snackbarHostState.showSnackbar("Subject deleted", "Undo", duration = SnackbarDuration.Short)
+                            if (result == SnackbarResult.ActionPerformed) {
+                                viewModel.undoLastDelete()
+                            }
+                        }
+                    }
                 ) {
                     ListItem(
                         headlineContent = { Text(subject.name) },
@@ -141,44 +165,7 @@ fun SubjectsTab(termId: Int, viewModel: MarksViewModel) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun <T> SwipeToDeleteContainer(
-    item: T,
-    onDelete: (T) -> Unit,
-    content: @Composable () -> Unit
-) {
-    var isDeleted by remember { mutableStateOf(false) }
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = {
-            if (it == SwipeToDismissBoxValue.EndToStart || it == SwipeToDismissBoxValue.StartToEnd) {
-                isDeleted = true
-                true
-            } else {
-                false
-            }
-        }
-    )
-
-    LaunchedEffect(isDeleted) {
-        if (isDeleted) {
-            onDelete(item)
-        }
-    }
-
-    SwipeToDismissBox(
-        state = dismissState,
-        backgroundContent = {
-            Box(
-                Modifier.fillMaxSize().background(Color.Red).padding(horizontal = 20.dp),
-                contentAlignment = Alignment.CenterEnd
-            ) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.White)
-            }
-        },
-        content = { content() }
-    )
-}
+    // SwipeToDeleteContainer moved to its own file
 
 @Composable
 fun AddStudentForm(termId: Int, onSubmit: (StudentEntity) -> Unit) {

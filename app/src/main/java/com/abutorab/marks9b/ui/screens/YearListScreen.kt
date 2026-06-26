@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import com.abutorab.marks9b.data.local.entity.YearEntity
 import com.abutorab.marks9b.ui.MarksViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -22,8 +23,11 @@ fun YearListScreen(
 ) {
     val years by viewModel.getAllYears().collectAsStateWithLifecycle(initialValue = emptyList())
     var showAddDialog by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Years") },
@@ -46,7 +50,17 @@ fun YearListScreen(
             items(years, key = { it.id }) { year ->
                 SwipeToDeleteContainer(
                     item = year,
-                    onDelete = { viewModel.deleteYear(it) }
+                    confirmTitle = "Delete year?",
+                    confirmMessage = "This will permanently delete '${year.label}' and ALL its terms, students, and subjects. This cannot be undone.",
+                    onDelete = { 
+                        coroutineScope.launch {
+                            viewModel.snapshotAndDeleteYear(it)
+                            val result = snackbarHostState.showSnackbar("Year deleted", "Undo", duration = SnackbarDuration.Short)
+                            if (result == SnackbarResult.ActionPerformed) {
+                                viewModel.undoLastDelete()
+                            }
+                        }
+                    }
                 ) {
                     ListItem(
                         headlineContent = { Text(year.label) },
