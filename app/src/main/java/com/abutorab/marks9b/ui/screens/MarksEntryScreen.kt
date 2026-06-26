@@ -17,9 +17,13 @@ import com.abutorab.marks9b.ui.MarksViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
+    val term by viewModel.getTermById(termId).collectAsStateWithLifecycle(initialValue = null)
+    if (term == null) return
+    val yearId = term!!.yearId
+
     val subjects by viewModel.getSubjectsForTerm(termId).collectAsStateWithLifecycle(initialValue = emptyList())
     val subject = subjects.find { it.id == subjectId }
-    val students by viewModel.getStudentsForTerm(termId).collectAsStateWithLifecycle(initialValue = emptyList())
+    val students by viewModel.getStudentsForYear(yearId).collectAsStateWithLifecycle(initialValue = emptyList())
     val marks by viewModel.getMarksForSubject(subjectId).collectAsStateWithLifecycle(initialValue = emptyList())
 
     Scaffold(

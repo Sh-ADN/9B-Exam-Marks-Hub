@@ -17,11 +17,12 @@ class MarksRepository(
     suspend fun deleteYear(year: YearEntity) = yearDao.delete(year)
 
     fun getTermsForYear(yearId: Int): Flow<List<TermEntity>> = termDao.getTermsForYear(yearId)
+    fun getTermById(termId: Int): Flow<TermEntity?> = termDao.getTermById(termId)
     suspend fun insertTerm(term: TermEntity) = termDao.insert(term)
     suspend fun updateTerm(term: TermEntity) = termDao.update(term)
     suspend fun deleteTerm(term: TermEntity) = termDao.delete(term)
 
-    fun getStudentsForTerm(termId: Int): Flow<List<StudentEntity>> = studentDao.getStudentsForTerm(termId)
+    fun getStudentsForYear(yearId: Int): Flow<List<StudentEntity>> = studentDao.getStudentsForYear(yearId)
     suspend fun insertStudent(student: StudentEntity) = studentDao.insert(student)
     suspend fun updateStudent(student: StudentEntity) = studentDao.update(student)
     suspend fun deleteStudent(student: StudentEntity) = studentDao.delete(student)

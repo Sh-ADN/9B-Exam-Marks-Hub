@@ -3,6 +3,7 @@ package com.abutorab.marks9b.ui.screens
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -29,6 +30,10 @@ fun TermDetailScreen(
     viewModel: MarksViewModel,
     onNavigateToMarksEntry: (Int, Int) -> Unit
 ) {
+    val term by viewModel.getTermById(termId).collectAsStateWithLifecycle(initialValue = null)
+    if (term == null) return
+    val yearId = term!!.yearId
+
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("Students", "Subjects", "Marks")
     val coroutineScope = rememberCoroutineScope()
@@ -39,7 +44,7 @@ fun TermDetailScreen(
         topBar = {
             Column {
                 TopAppBar(
-                    title = { Text("Term Details") },
+                    title = { Text(term!!.label) },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer,
                         titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -59,7 +64,7 @@ fun TermDetailScreen(
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
             if (selectedTabIndex == 0) {
-                StudentsTab(termId = termId, viewModel = viewModel, snackbarHostState = snackbarHostState, coroutineScope = coroutineScope)
+                StudentsTab(yearId = yearId, viewModel = viewModel, snackbarHostState = snackbarHostState, coroutineScope = coroutineScope)
             } else if (selectedTabIndex == 1) {
                 SubjectsTab(termId = termId, viewModel = viewModel, snackbarHostState = snackbarHostState, coroutineScope = coroutineScope)
             } else {
@@ -69,14 +74,21 @@ fun TermDetailScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun StudentsTab(termId: Int, viewModel: MarksViewModel, snackbarHostState: SnackbarHostState, coroutineScope: kotlinx.coroutines.CoroutineScope) {
-    val students by viewModel.getStudentsForTerm(termId).collectAsStateWithLifecycle(initialValue = emptyList())
+fun StudentsTab(yearId: Int, viewModel: MarksViewModel, snackbarHostState: SnackbarHostState, coroutineScope: kotlinx.coroutines.CoroutineScope) {
+    val students by viewModel.getStudentsForYear(yearId).collectAsStateWithLifecycle(initialValue = emptyList())
     var showAddSheet by remember { mutableStateOf(false) }
+    var studentToEdit by remember { mutableStateOf<StudentEntity?>(null) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val launcher = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            viewModel.importStudentsFromCsv(yearId, uri, context)
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(contentPadding = PaddingValues(bottom = 80.dp)) {
+        LazyColumn(contentPadding = PaddingValues(bottom = 140.dp)) {
             items(students, key = { it.id }) { student ->
                 SwipeToDeleteContainer(
                     item = student,
@@ -94,36 +106,53 @@ fun StudentsTab(termId: Int, viewModel: MarksViewModel, snackbarHostState: Snack
                 ) {
                     ListItem(
                         headlineContent = { Text(student.name) },
-                        supportingContent = { Text("Roll: ${student.roll} | Rel: ${student.religion} | Grp: ${student.group}") }
+                        supportingContent = { Text("Roll: ${student.roll} | Rel: ${student.religion} | Grp: ${student.group}") },
+                        modifier = Modifier.combinedClickable(
+                            onClick = {},
+                            onLongClick = { studentToEdit = student }
+                        )
                     )
                     HorizontalDivider()
                 }
             }
         }
 
-        FloatingActionButton(
-            onClick = { showAddSheet = true },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
-        ) {
-            Icon(Icons.Default.Add, contentDescription = "Add Student")
+        Column(modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp), horizontalAlignment = Alignment.End) {
+            SmallFloatingActionButton(onClick = { launcher.launch("*/*") }) {
+                Icon(androidx.compose.material.icons.Icons.Default.DateRange, contentDescription = "Upload CSV")
+            }
+            Spacer(Modifier.height(8.dp))
+            FloatingActionButton(onClick = { showAddSheet = true }) {
+                Icon(Icons.Default.Add, contentDescription = "Add Student")
+            }
         }
     }
 
     if (showAddSheet) {
         ModalBottomSheet(onDismissRequest = { showAddSheet = false }) {
-            AddStudentForm(termId = termId, onSubmit = { student ->
+            StudentForm(yearId = yearId, initialStudent = null, onSubmit = { student ->
                 viewModel.insertStudent(student)
                 showAddSheet = false
             })
         }
     }
+
+    if (studentToEdit != null) {
+        ModalBottomSheet(onDismissRequest = { studentToEdit = null }) {
+            StudentForm(yearId = yearId, initialStudent = studentToEdit, onSubmit = { student ->
+                viewModel.updateStudent(student)
+                studentToEdit = null
+            })
+        }
+    }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun SubjectsTab(termId: Int, viewModel: MarksViewModel, snackbarHostState: SnackbarHostState, coroutineScope: kotlinx.coroutines.CoroutineScope) {
     val subjects by viewModel.getSubjectsForTerm(termId).collectAsStateWithLifecycle(initialValue = emptyList())
     var showAddSheet by remember { mutableStateOf(false) }
+    var subjectToEdit by remember { mutableStateOf<SubjectEntity?>(null) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(contentPadding = PaddingValues(bottom = 80.dp)) {
@@ -144,7 +173,11 @@ fun SubjectsTab(termId: Int, viewModel: MarksViewModel, snackbarHostState: Snack
                 ) {
                     ListItem(
                         headlineContent = { Text(subject.name) },
-                        supportingContent = { Text("Full: ${subject.fullMarks} | Pass: ${subject.passMarks} | Role: ${subject.sheetRole}") }
+                        supportingContent = { Text("Full: ${subject.fullMarks} | Pass: ${subject.passMarks} | Role: ${subject.sheetRole}") },
+                        modifier = Modifier.combinedClickable(
+                            onClick = {},
+                            onLongClick = { subjectToEdit = subject }
+                        )
                     )
                     HorizontalDivider()
                 }
@@ -161,9 +194,18 @@ fun SubjectsTab(termId: Int, viewModel: MarksViewModel, snackbarHostState: Snack
 
     if (showAddSheet) {
         ModalBottomSheet(onDismissRequest = { showAddSheet = false }) {
-            AddSubjectForm(termId = termId, onSubmit = { subject ->
+            SubjectForm(termId = termId, initialSubject = null, onSubmit = { subject ->
                 viewModel.insertSubject(subject)
                 showAddSheet = false
+            })
+        }
+    }
+
+    if (subjectToEdit != null) {
+        ModalBottomSheet(onDismissRequest = { subjectToEdit = null }) {
+            SubjectForm(termId = termId, initialSubject = subjectToEdit, onSubmit = { subject ->
+                viewModel.updateSubject(subject)
+                subjectToEdit = null
             })
         }
     }
@@ -189,15 +231,15 @@ fun MarksTab(termId: Int, viewModel: MarksViewModel, onNavigateToMarksEntry: (In
 // SwipeToDeleteContainer moved to its own file
 
 @Composable
-fun AddStudentForm(termId: Int, onSubmit: (StudentEntity) -> Unit) {
-    var name by remember { mutableStateOf("") }
-    var roll by remember { mutableStateOf("") }
-    var religion by remember { mutableStateOf(Religion.ISLAM) }
-    var group by remember { mutableStateOf(StudentGroup.SCIENCE) }
-    var optional by remember { mutableStateOf(OptionalType.HIGHER_MATH) }
+fun StudentForm(yearId: Int, initialStudent: StudentEntity?, onSubmit: (StudentEntity) -> Unit) {
+    var name by remember { mutableStateOf(initialStudent?.name ?: "") }
+    var roll by remember { mutableStateOf(initialStudent?.roll?.toString() ?: "") }
+    var religion by remember { mutableStateOf(Religion.fromCode(initialStudent?.religion ?: Religion.ISLAM.code)) }
+    var group by remember { mutableStateOf(StudentGroup.fromCode(initialStudent?.group ?: StudentGroup.SCIENCE.code)) }
+    var optional by remember { mutableStateOf(OptionalType.fromCode(initialStudent?.optionalType ?: OptionalType.HIGHER_MATH.code)) }
 
     Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
-        Text("Add Student", style = MaterialTheme.typography.titleLarge)
+        Text(if (initialStudent == null) "Add Student" else "Edit Student", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(
             value = name, onValueChange = { name = it },
@@ -217,6 +259,7 @@ fun AddStudentForm(termId: Int, onSubmit: (StudentEntity) -> Unit) {
         Spacer(Modifier.height(8.dp))
         EnumDropdown(label = "Group", selected = group.name, options = StudentGroup.values().map { it.name }) {
             group = StudentGroup.valueOf(it)
+            optional = if (group == StudentGroup.SCIENCE) OptionalType.HIGHER_MATH else OptionalType.AGRICULTURE
         }
         Spacer(Modifier.height(8.dp))
         EnumDropdown(label = "Optional Type", selected = optional.name, options = OptionalType.values().map { it.name }) {
@@ -230,7 +273,8 @@ fun AddStudentForm(termId: Int, onSubmit: (StudentEntity) -> Unit) {
                 if (name.isNotBlank() && rollInt > 0) {
                     onSubmit(
                         StudentEntity(
-                            termId = termId, roll = rollInt, name = name,
+                            id = initialStudent?.id ?: 0,
+                            yearId = yearId, roll = rollInt, name = name,
                             religion = religion.code, group = group.code, optionalType = optional.code
                         )
                     )
@@ -245,14 +289,14 @@ fun AddStudentForm(termId: Int, onSubmit: (StudentEntity) -> Unit) {
 }
 
 @Composable
-fun AddSubjectForm(termId: Int, onSubmit: (SubjectEntity) -> Unit) {
-    var name by remember { mutableStateOf("") }
-    var fullMarks by remember { mutableStateOf("") }
-    var passMarks by remember { mutableStateOf("") }
-    var role by remember { mutableStateOf(SheetRole.NONE) }
+fun SubjectForm(termId: Int, initialSubject: SubjectEntity?, onSubmit: (SubjectEntity) -> Unit) {
+    var name by remember { mutableStateOf(initialSubject?.name ?: "") }
+    var fullMarks by remember { mutableStateOf(initialSubject?.fullMarks?.toString() ?: "") }
+    var passMarks by remember { mutableStateOf(initialSubject?.passMarks?.toString() ?: "") }
+    var role by remember { mutableStateOf(SheetRole.fromCode(initialSubject?.sheetRole ?: SheetRole.NONE.code)) }
 
     Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
-        Text("Add Subject", style = MaterialTheme.typography.titleLarge)
+        Text(if (initialSubject == null) "Add Subject" else "Edit Subject", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(
             value = name, onValueChange = { name = it },
@@ -285,6 +329,7 @@ fun AddSubjectForm(termId: Int, onSubmit: (SubjectEntity) -> Unit) {
                 if (name.isNotBlank() && full > 0) {
                     onSubmit(
                         SubjectEntity(
+                            id = initialSubject?.id ?: 0,
                             termId = termId, name = name, fullMarks = full,
                             passMarks = pass, sheetRole = role.code
                         )

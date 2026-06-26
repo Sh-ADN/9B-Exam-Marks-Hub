@@ -1,6 +1,7 @@
 package com.abutorab.marks9b.ui.screens
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,7 +16,7 @@ import com.abutorab.marks9b.ui.MarksViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun TermListScreen(
     yearId: Int,
@@ -24,6 +25,7 @@ fun TermListScreen(
 ) {
     val terms by viewModel.getTermsForYear(yearId).collectAsStateWithLifecycle(initialValue = emptyList())
     var showAddDialog by remember { mutableStateOf(false) }
+    var termToEdit by remember { mutableStateOf<TermEntity?>(null) }
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -65,7 +67,10 @@ fun TermListScreen(
                 ) {
                     ListItem(
                         headlineContent = { Text(term.label) },
-                        modifier = Modifier.clickable { onNavigateToTermDetail(term.id) }
+                        modifier = Modifier.combinedClickable(
+                            onClick = { onNavigateToTermDetail(term.id) },
+                            onLongClick = { termToEdit = term }
+                        )
                     )
                     HorizontalDivider()
                 }
@@ -96,6 +101,34 @@ fun TermListScreen(
                 },
                 dismissButton = {
                     TextButton(onClick = { showAddDialog = false }) { Text("Cancel") }
+                }
+            )
+        }
+
+        if (termToEdit != null) {
+            var label by remember { mutableStateOf(termToEdit!!.label) }
+            AlertDialog(
+                onDismissRequest = { termToEdit = null },
+                title = { Text("Edit Term") },
+                text = {
+                    OutlinedTextField(
+                        value = label,
+                        onValueChange = { label = it },
+                        label = { Text("Term") }
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        if (label.isNotBlank()) {
+                            viewModel.updateTerm(termToEdit!!.copy(label = label))
+                            termToEdit = null
+                        }
+                    }) {
+                        Text("Save")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { termToEdit = null }) { Text("Cancel") }
                 }
             )
         }

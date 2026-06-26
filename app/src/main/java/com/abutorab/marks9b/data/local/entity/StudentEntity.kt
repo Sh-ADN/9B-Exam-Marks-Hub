@@ -9,17 +9,17 @@ import androidx.room.PrimaryKey
     tableName = "students",
     foreignKeys = [
         ForeignKey(
-            entity = TermEntity::class,
+            entity = YearEntity::class,
             parentColumns = ["id"],
-            childColumns = ["termId"],
+            childColumns = ["yearId"],
             onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index("termId")]
+    indices = [Index("yearId")]
 )
 data class StudentEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val termId: Int,
+    val yearId: Int,
     val roll: Int,
     val name: String,
     val religion: String,

@@ -15,18 +15,23 @@ class MarksViewModel(
 ) : AndroidViewModel(application) {
     fun getAllYears(): Flow<List<YearEntity>> = repository.getAllYears()
     fun insertYear(label: String) = viewModelScope.launch { repository.insertYear(YearEntity(label = label)) }
+    fun updateYear(year: YearEntity) = viewModelScope.launch { repository.updateYear(year) }
     fun deleteYear(year: YearEntity) = viewModelScope.launch { repository.deleteYear(year) }
 
     fun getTermsForYear(yearId: Int): Flow<List<TermEntity>> = repository.getTermsForYear(yearId)
+    fun getTermById(termId: Int): Flow<TermEntity?> = repository.getTermById(termId)
     fun insertTerm(yearId: Int, label: String) = viewModelScope.launch { repository.insertTerm(TermEntity(yearId = yearId, label = label)) }
+    fun updateTerm(term: TermEntity) = viewModelScope.launch { repository.updateTerm(term) }
     fun deleteTerm(term: TermEntity) = viewModelScope.launch { repository.deleteTerm(term) }
 
-    fun getStudentsForTerm(termId: Int): Flow<List<StudentEntity>> = repository.getStudentsForTerm(termId)
+    fun getStudentsForYear(yearId: Int): Flow<List<StudentEntity>> = repository.getStudentsForYear(yearId)
     fun insertStudent(student: StudentEntity) = viewModelScope.launch { repository.insertStudent(student) }
+    fun updateStudent(student: StudentEntity) = viewModelScope.launch { repository.updateStudent(student) }
     fun deleteStudent(student: StudentEntity) = viewModelScope.launch { repository.deleteStudent(student) }
 
     fun getSubjectsForTerm(termId: Int): Flow<List<SubjectEntity>> = repository.getSubjectsForTerm(termId)
     fun insertSubject(subject: SubjectEntity) = viewModelScope.launch { repository.insertSubject(subject) }
+    fun updateSubject(subject: SubjectEntity) = viewModelScope.launch { repository.updateSubject(subject) }
     fun deleteSubject(subject: SubjectEntity) = viewModelScope.launch { repository.deleteSubject(subject) }
 
     fun getMarksForSubject(subjectId: Int): Flow<List<MarkEntity>> = repository.getMarksForSubject(subjectId)
@@ -34,14 +39,37 @@ class MarksViewModel(
         repository.saveMark(studentId, subjectId, marksObtained) 
     }
 
+    fun importStudentsFromCsv(yearId: Int, uri: android.net.Uri, context: android.content.Context) = viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+        try {
+            context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { reader ->
+                val lines = reader.readLines()
+                if (lines.isNotEmpty()) {
+                    for (i in 1 until lines.size) {
+                        val line = lines[i]
+                        val parts = line.split(",")
+                        if (parts.size >= 5) {
+                            val roll = parts[0].trim().toIntOrNull() ?: continue
+                            val name = parts[1].trim()
+                            val religion = parts[2].trim()
+                            val group = parts[3].trim()
+                            val optional = parts[4].trim()
+                            repository.insertStudent(StudentEntity(yearId = yearId, roll = roll, name = name, religion = religion, group = group, optionalType = optional))
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     private var undoAction: (suspend () -> Unit)? = null
 
     suspend fun snapshotAndDeleteYear(year: YearEntity) {
         val terms = repository.getTermsForYear(year.id).first()
-        val students = mutableListOf<StudentEntity>()
+        val students = repository.getStudentsForYear(year.id).first()
         val subjects = mutableListOf<SubjectEntity>()
         for (term in terms) {
-            students.addAll(repository.getStudentsForTerm(term.id).first())
             subjects.addAll(repository.getSubjectsForTerm(term.id).first())
         }
         undoAction = {
@@ -54,11 +82,9 @@ class MarksViewModel(
     }
 
     suspend fun snapshotAndDeleteTerm(term: TermEntity) {
-        val students = repository.getStudentsForTerm(term.id).first()
         val subjects = repository.getSubjectsForTerm(term.id).first()
         undoAction = {
             repository.insertTerm(term)
-            students.forEach { repository.insertStudent(it) }
             subjects.forEach { repository.insertSubject(it) }
         }
         repository.deleteTerm(term)

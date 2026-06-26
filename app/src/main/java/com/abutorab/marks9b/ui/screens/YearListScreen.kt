@@ -1,6 +1,7 @@
 package com.abutorab.marks9b.ui.screens
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,7 +16,7 @@ import com.abutorab.marks9b.ui.MarksViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun YearListScreen(
     viewModel: MarksViewModel,
@@ -23,6 +24,7 @@ fun YearListScreen(
 ) {
     val years by viewModel.getAllYears().collectAsStateWithLifecycle(initialValue = emptyList())
     var showAddDialog by remember { mutableStateOf(false) }
+    var yearToEdit by remember { mutableStateOf<YearEntity?>(null) }
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -64,7 +66,10 @@ fun YearListScreen(
                 ) {
                     ListItem(
                         headlineContent = { Text(year.label) },
-                        modifier = Modifier.clickable { onNavigateToTerms(year.id) }
+                        modifier = Modifier.combinedClickable(
+                            onClick = { onNavigateToTerms(year.id) },
+                            onLongClick = { yearToEdit = year }
+                        )
                     )
                     HorizontalDivider()
                 }
@@ -95,6 +100,34 @@ fun YearListScreen(
                 },
                 dismissButton = {
                     TextButton(onClick = { showAddDialog = false }) { Text("Cancel") }
+                }
+            )
+        }
+
+        if (yearToEdit != null) {
+            var label by remember { mutableStateOf(yearToEdit!!.label) }
+            AlertDialog(
+                onDismissRequest = { yearToEdit = null },
+                title = { Text("Edit Year") },
+                text = {
+                    OutlinedTextField(
+                        value = label,
+                        onValueChange = { label = it },
+                        label = { Text("Year") }
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        if (label.isNotBlank()) {
+                            viewModel.updateYear(yearToEdit!!.copy(label = label))
+                            yearToEdit = null
+                        }
+                    }) {
+                        Text("Save")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { yearToEdit = null }) { Text("Cancel") }
                 }
             )
         }

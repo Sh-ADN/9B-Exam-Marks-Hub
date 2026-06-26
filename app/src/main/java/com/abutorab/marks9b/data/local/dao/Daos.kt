@@ -24,6 +24,9 @@ interface TermDao {
     @Query("SELECT * FROM terms WHERE yearId = :yearId")
     fun getTermsForYear(yearId: Int): Flow<List<TermEntity>>
 
+    @Query("SELECT * FROM terms WHERE id = :termId")
+    fun getTermById(termId: Int): Flow<TermEntity?>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(term: TermEntity)
 
@@ -36,8 +39,8 @@ interface TermDao {
 
 @Dao
 interface StudentDao {
-    @Query("SELECT * FROM students WHERE termId = :termId ORDER BY roll ASC")
-    fun getStudentsForTerm(termId: Int): Flow<List<StudentEntity>>
+    @Query("SELECT * FROM students WHERE yearId = :yearId ORDER BY roll ASC")
+    fun getStudentsForYear(yearId: Int): Flow<List<StudentEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(student: StudentEntity)
