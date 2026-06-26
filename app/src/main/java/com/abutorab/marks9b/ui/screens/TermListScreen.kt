@@ -44,12 +44,17 @@ fun TermListScreen(
             modifier = Modifier.fillMaxSize().padding(innerPadding),
             contentPadding = PaddingValues(16.dp)
         ) {
-            items(terms) { term ->
-                ListItem(
-                    headlineContent = { Text(term.label) },
-                    modifier = Modifier.clickable { onNavigateToTermDetail(term.id) }
-                )
-                HorizontalDivider()
+            items(terms, key = { it.id }) { term ->
+                SwipeToDeleteContainer(
+                    item = term,
+                    onDelete = { viewModel.deleteTerm(it) }
+                ) {
+                    ListItem(
+                        headlineContent = { Text(term.label) },
+                        modifier = Modifier.clickable { onNavigateToTermDetail(term.id) }
+                    )
+                    HorizontalDivider()
+                }
             }
         }
 

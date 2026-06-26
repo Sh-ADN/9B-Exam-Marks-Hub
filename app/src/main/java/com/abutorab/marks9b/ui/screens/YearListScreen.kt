@@ -43,12 +43,17 @@ fun YearListScreen(
             modifier = Modifier.fillMaxSize().padding(innerPadding),
             contentPadding = PaddingValues(16.dp)
         ) {
-            items(years) { year ->
-                ListItem(
-                    headlineContent = { Text(year.label) },
-                    modifier = Modifier.clickable { onNavigateToTerms(year.id) }
-                )
-                HorizontalDivider()
+            items(years, key = { it.id }) { year ->
+                SwipeToDeleteContainer(
+                    item = year,
+                    onDelete = { viewModel.deleteYear(it) }
+                ) {
+                    ListItem(
+                        headlineContent = { Text(year.label) },
+                        modifier = Modifier.clickable { onNavigateToTerms(year.id) }
+                    )
+                    HorizontalDivider()
+                }
             }
         }
 
