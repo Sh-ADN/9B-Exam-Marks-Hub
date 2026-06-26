@@ -49,7 +49,7 @@ fun <T> SwipeToDeleteContainer(
                 TextButton(onClick = {
                     showDialog = false
                     coroutineScope.launch {
-                        dismissState.snapTo(SwipeToDismissBoxValue.Settled)
+                        dismissState.reset()
                         onDelete(item)
                     }
                 }) {
