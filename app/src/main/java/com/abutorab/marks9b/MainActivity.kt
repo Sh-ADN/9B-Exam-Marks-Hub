@@ -44,6 +44,7 @@ import com.abutorab.marks9b.ui.MarksViewModelFactory
 import com.abutorab.marks9b.ui.screens.TermDetailScreen
 import com.abutorab.marks9b.ui.screens.TermListScreen
 import com.abutorab.marks9b.ui.screens.YearListScreen
+import com.abutorab.marks9b.ui.screens.MarksEntryScreen
 import com.abutorab.marks9b.ui.theme.Marks9bTheme
 import kotlinx.coroutines.delay
 
@@ -53,7 +54,7 @@ class MainActivity : ComponentActivity() {
     enableEdgeToEdge()
 
     val db = MarksDatabase.getDatabase(applicationContext)
-    val repository = MarksRepository(db.yearDao(), db.termDao(), db.studentDao(), db.subjectDao())
+    val repository = MarksRepository(db.yearDao(), db.termDao(), db.studentDao(), db.subjectDao(), db.markDao())
 
     setContent {
       Marks9bTheme {
@@ -89,7 +90,24 @@ class MainActivity : ComponentActivity() {
             arguments = listOf(navArgument("termId") { type = NavType.IntType })
           ) { backStackEntry ->
             val termId = backStackEntry.arguments?.getInt("termId") ?: 0
-            TermDetailScreen(termId = termId, viewModel = viewModel)
+            TermDetailScreen(
+                termId = termId, 
+                viewModel = viewModel,
+                onNavigateToMarksEntry = { term, subject ->
+                    navController.navigate("marksEntry/$term/$subject")
+                }
+            )
+          }
+          composable(
+            "marksEntry/{termId}/{subjectId}",
+            arguments = listOf(
+                navArgument("termId") { type = NavType.IntType },
+                navArgument("subjectId") { type = NavType.IntType }
+            )
+          ) { backStackEntry ->
+            val termId = backStackEntry.arguments?.getInt("termId") ?: 0
+            val subjectId = backStackEntry.arguments?.getInt("subjectId") ?: 0
+            MarksEntryScreen(termId = termId, subjectId = subjectId, viewModel = viewModel)
           }
         }
       }

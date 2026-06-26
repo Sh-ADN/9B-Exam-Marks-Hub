@@ -29,6 +29,11 @@ class MarksViewModel(
     fun insertSubject(subject: SubjectEntity) = viewModelScope.launch { repository.insertSubject(subject) }
     fun deleteSubject(subject: SubjectEntity) = viewModelScope.launch { repository.deleteSubject(subject) }
 
+    fun getMarksForSubject(subjectId: Int): Flow<List<MarkEntity>> = repository.getMarksForSubject(subjectId)
+    fun saveMark(studentId: Int, subjectId: Int, marksObtained: Int) = viewModelScope.launch { 
+        repository.saveMark(studentId, subjectId, marksObtained) 
+    }
+
     private var undoAction: (suspend () -> Unit)? = null
 
     suspend fun snapshotAndDeleteYear(year: YearEntity) {

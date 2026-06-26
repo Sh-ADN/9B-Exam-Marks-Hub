@@ -63,3 +63,12 @@ interface SubjectDao {
     @Delete
     suspend fun delete(subject: SubjectEntity)
 }
+
+@Dao
+interface MarkDao {
+    @Query("SELECT * FROM marks WHERE subjectId = :subjectId")
+    fun getMarksForSubject(subjectId: Int): Flow<List<MarkEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertMark(mark: MarkEntity)
+}

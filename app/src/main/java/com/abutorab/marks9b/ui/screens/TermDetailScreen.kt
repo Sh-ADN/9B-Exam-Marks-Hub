@@ -2,6 +2,7 @@ package com.abutorab.marks9b.ui.screens
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -25,10 +26,11 @@ import kotlinx.coroutines.launch
 @Composable
 fun TermDetailScreen(
     termId: Int,
-    viewModel: MarksViewModel
+    viewModel: MarksViewModel,
+    onNavigateToMarksEntry: (Int, Int) -> Unit
 ) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Students", "Subjects")
+    val tabs = listOf("Students", "Subjects", "Marks")
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -58,8 +60,10 @@ fun TermDetailScreen(
         Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
             if (selectedTabIndex == 0) {
                 StudentsTab(termId = termId, viewModel = viewModel, snackbarHostState = snackbarHostState, coroutineScope = coroutineScope)
-            } else {
+            } else if (selectedTabIndex == 1) {
                 SubjectsTab(termId = termId, viewModel = viewModel, snackbarHostState = snackbarHostState, coroutineScope = coroutineScope)
+            } else {
+                MarksTab(termId = termId, viewModel = viewModel, onNavigateToMarksEntry = onNavigateToMarksEntry)
             }
         }
     }
@@ -165,7 +169,24 @@ fun SubjectsTab(termId: Int, viewModel: MarksViewModel, snackbarHostState: Snack
     }
 }
 
-    // SwipeToDeleteContainer moved to its own file
+@Composable
+fun MarksTab(termId: Int, viewModel: MarksViewModel, onNavigateToMarksEntry: (Int, Int) -> Unit) {
+    val subjects by viewModel.getSubjectsForTerm(termId).collectAsStateWithLifecycle(initialValue = emptyList())
+
+    LazyColumn(contentPadding = PaddingValues(bottom = 80.dp), modifier = Modifier.fillMaxSize()) {
+        items(subjects, key = { it.id }) { subject ->
+            ListItem(
+                headlineContent = { Text(subject.name) },
+                modifier = Modifier.clickable {
+                    onNavigateToMarksEntry(termId, subject.id)
+                }
+            )
+            HorizontalDivider()
+        }
+    }
+}
+
+// SwipeToDeleteContainer moved to its own file
 
 @Composable
 fun AddStudentForm(termId: Int, onSubmit: (StudentEntity) -> Unit) {

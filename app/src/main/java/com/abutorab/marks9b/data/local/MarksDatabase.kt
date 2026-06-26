@@ -8,8 +8,8 @@ import com.abutorab.marks9b.data.local.entity.*
 import com.abutorab.marks9b.data.local.dao.*
 
 @Database(
-    entities = [YearEntity::class, TermEntity::class, StudentEntity::class, SubjectEntity::class],
-    version = 1,
+    entities = [YearEntity::class, TermEntity::class, StudentEntity::class, SubjectEntity::class, MarkEntity::class],
+    version = 2,
     exportSchema = false
 )
 abstract class MarksDatabase : RoomDatabase() {
@@ -17,6 +17,7 @@ abstract class MarksDatabase : RoomDatabase() {
     abstract fun termDao(): TermDao
     abstract fun studentDao(): StudentDao
     abstract fun subjectDao(): SubjectDao
+    abstract fun markDao(): MarkDao
 
     companion object {
         @Volatile
