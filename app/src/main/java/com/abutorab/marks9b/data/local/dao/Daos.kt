@@ -28,7 +28,7 @@ interface TermDao {
     fun getTermById(termId: Int): Flow<TermEntity?>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(term: TermEntity)
+    suspend fun insert(term: TermEntity): Long
 
     @Update
     suspend fun update(term: TermEntity)

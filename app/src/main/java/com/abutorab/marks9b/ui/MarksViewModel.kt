@@ -20,7 +20,24 @@ class MarksViewModel(
 
     fun getTermsForYear(yearId: Int): Flow<List<TermEntity>> = repository.getTermsForYear(yearId)
     fun getTermById(termId: Int): Flow<TermEntity?> = repository.getTermById(termId)
-    fun insertTerm(yearId: Int, label: String) = viewModelScope.launch { repository.insertTerm(TermEntity(yearId = yearId, label = label)) }
+    fun insertTerm(yearId: Int, label: String) = viewModelScope.launch {
+        val termId = repository.insertTerm(TermEntity(yearId = yearId, label = label))
+        com.abutorab.marks9b.data.local.entity.SubjectCatalog.subjects.forEach { data ->
+            repository.insertSubject(
+                SubjectEntity(
+                    termId = termId.toInt(),
+                    name = data.name,
+                    sheetRole = data.sheetRole,
+                    applicabilityType = data.applicabilityType,
+                    applicabilityValue = data.applicabilityValue,
+                    fullMarks = data.fullMarks,
+                    mcqMax = data.mcqMax,
+                    writtenMax = data.writtenMax,
+                    practicalMax = data.practicalMax
+                )
+            )
+        }
+    }
     fun updateTerm(term: TermEntity) = viewModelScope.launch { repository.updateTerm(term) }
     fun deleteTerm(term: TermEntity) = viewModelScope.launch { repository.deleteTerm(term) }
 
@@ -35,8 +52,8 @@ class MarksViewModel(
     fun deleteSubject(subject: SubjectEntity) = viewModelScope.launch { repository.deleteSubject(subject) }
 
     fun getMarksForSubject(subjectId: Int): Flow<List<MarkEntity>> = repository.getMarksForSubject(subjectId)
-    fun saveMark(studentId: Int, subjectId: Int, marksObtained: Int) = viewModelScope.launch { 
-        repository.saveMark(studentId, subjectId, marksObtained) 
+    fun saveMark(mark: MarkEntity) = viewModelScope.launch { 
+        repository.saveMark(mark) 
     }
 
     fun importStudentsFromCsv(yearId: Int, uri: android.net.Uri, context: android.content.Context) = viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {

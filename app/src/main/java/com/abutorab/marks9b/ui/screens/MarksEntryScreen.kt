@@ -12,6 +12,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.abutorab.marks9b.data.local.entity.StudentEntity
+import com.abutorab.marks9b.data.local.entity.SubjectEntity
+import com.abutorab.marks9b.data.local.entity.MarkEntity
+import com.abutorab.marks9b.data.local.entity.ApplicabilityType
 import com.abutorab.marks9b.ui.MarksViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -22,14 +25,26 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
     val yearId = term!!.yearId
 
     val subjects by viewModel.getSubjectsForTerm(termId).collectAsStateWithLifecycle(initialValue = emptyList())
-    val subject = subjects.find { it.id == subjectId }
-    val students by viewModel.getStudentsForYear(yearId).collectAsStateWithLifecycle(initialValue = emptyList())
+    val subject = subjects.find { it.id == subjectId } ?: return
+    val allStudents by viewModel.getStudentsForYear(yearId).collectAsStateWithLifecycle(initialValue = emptyList())
     val marks by viewModel.getMarksForSubject(subjectId).collectAsStateWithLifecycle(initialValue = emptyList())
+
+    val filteredStudents = remember(allStudents, subject) {
+        allStudents.filter { student ->
+            when (subject.applicabilityType) {
+                ApplicabilityType.ALL.name -> true
+                ApplicabilityType.RELIGION.name -> student.religion == subject.applicabilityValue
+                ApplicabilityType.GROUP.name -> student.group == subject.applicabilityValue
+                ApplicabilityType.OPTIONAL_TYPE.name -> student.optionalType == subject.applicabilityValue
+                else -> true
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(subject?.name ?: "Enter Marks") },
+                title = { Text(subject.name) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -41,14 +56,23 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
             modifier = Modifier.padding(innerPadding).fillMaxSize(),
             contentPadding = PaddingValues(16.dp)
         ) {
-            items(students, key = { it.id }) { student ->
+            items(filteredStudents, key = { it.id }) { student ->
                 val mark = marks.find { it.studentId == student.id }
                 MarkEntryRow(
                     student = student,
-                    fullMarks = subject?.fullMarks ?: 100,
-                    existingMark = mark?.marksObtained,
-                    onSaveMark = { value ->
-                        viewModel.saveMark(student.id, subjectId, value)
+                    subject = subject,
+                    existingMark = mark,
+                    onSaveMark = { mcq, written, practical ->
+                        viewModel.saveMark(
+                            MarkEntity(
+                                id = mark?.id ?: 0,
+                                studentId = student.id,
+                                subjectId = subjectId,
+                                mcqMarks = mcq,
+                                writtenMarks = written,
+                                practicalMarks = practical
+                            )
+                        )
                     }
                 )
                 HorizontalDivider()
@@ -60,51 +84,80 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
 @Composable
 fun MarkEntryRow(
     student: StudentEntity,
-    fullMarks: Int,
-    existingMark: Int?,
-    onSaveMark: (Int) -> Unit
+    subject: SubjectEntity,
+    existingMark: MarkEntity?,
+    onSaveMark: (mcq: Int?, written: Int?, practical: Int?) -> Unit
 ) {
-    var textValue by remember { mutableStateOf(existingMark?.toString() ?: "") }
-    var isError by remember { mutableStateOf(false) }
+    var mcqText by remember(existingMark?.mcqMarks) { mutableStateOf(existingMark?.mcqMarks?.toString() ?: "") }
+    var writtenText by remember(existingMark?.writtenMarks) { mutableStateOf(existingMark?.writtenMarks?.toString() ?: "") }
+    var practicalText by remember(existingMark?.practicalMarks) { mutableStateOf(existingMark?.practicalMarks?.toString() ?: "") }
 
-    LaunchedEffect(existingMark) {
-        if (existingMark != null) {
-            val currentParsed = textValue.toIntOrNull()
-            if (currentParsed != existingMark) {
-                textValue = existingMark.toString()
-                isError = false
-            }
+    var mcqError by remember { mutableStateOf(false) }
+    var writtenError by remember { mutableStateOf(false) }
+    var practicalError by remember { mutableStateOf(false) }
+
+    fun trySave() {
+        val mcqParsed = mcqText.toIntOrNull()
+        val writtenParsed = writtenText.toIntOrNull()
+        val practicalParsed = practicalText.toIntOrNull()
+
+        mcqError = mcqText.isNotEmpty() && (mcqParsed == null || subject.mcqMax == null || mcqParsed !in 0..subject.mcqMax)
+        writtenError = writtenText.isNotEmpty() && (writtenParsed == null || subject.writtenMax == null || writtenParsed !in 0..subject.writtenMax)
+        practicalError = practicalText.isNotEmpty() && (practicalParsed == null || subject.practicalMax == null || practicalParsed !in 0..subject.practicalMax)
+
+        if (!mcqError && !writtenError && !practicalError) {
+            val finalMcq = if (mcqText.isEmpty()) existingMark?.mcqMarks else mcqParsed
+            val finalWritten = if (writtenText.isEmpty()) existingMark?.writtenMarks else writtenParsed
+            val finalPractical = if (practicalText.isEmpty()) existingMark?.practicalMarks else practicalParsed
+            
+            // Only save if something actually changed from what's stored to avoid infinite loops,
+            // or we could just always save if valid since room upserts. Let's just always save if valid.
+            onSaveMark(finalMcq, finalWritten, finalPractical)
         }
     }
 
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
-            Text("${student.roll} - ${student.name}", style = MaterialTheme.typography.bodyLarge)
+    val total = (mcqText.toIntOrNull() ?: 0) + (writtenText.toIntOrNull() ?: 0) + (practicalText.toIntOrNull() ?: 0)
+
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("${student.roll} - ${student.name}", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            Text("Total: $total", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
         }
-        OutlinedTextField(
-            value = textValue,
-            onValueChange = { newValue ->
-                textValue = newValue
-                if (newValue.isEmpty()) {
-                    isError = false
-                } else {
-                    val parsed = newValue.toIntOrNull()
-                    if (parsed != null && parsed in 0..fullMarks) {
-                        isError = false
-                        onSaveMark(parsed)
-                    } else {
-                        isError = true
-                    }
-                }
-            },
-            modifier = Modifier.width(120.dp),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            isError = isError,
-            label = { Text("/ $fullMarks") },
-            singleLine = true
-        )
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (subject.mcqMax != null) {
+                OutlinedTextField(
+                    value = mcqText,
+                    onValueChange = { mcqText = it; trySave() },
+                    modifier = Modifier.weight(1f),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = mcqError,
+                    label = { Text("MCQ / ${subject.mcqMax}") },
+                    singleLine = true
+                )
+            }
+            if (subject.writtenMax != null) {
+                OutlinedTextField(
+                    value = writtenText,
+                    onValueChange = { writtenText = it; trySave() },
+                    modifier = Modifier.weight(1f),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = writtenError,
+                    label = { Text("CQ / ${subject.writtenMax}") },
+                    singleLine = true
+                )
+            }
+            if (subject.practicalMax != null) {
+                OutlinedTextField(
+                    value = practicalText,
+                    onValueChange = { practicalText = it; trySave() },
+                    modifier = Modifier.weight(1f),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = practicalError,
+                    label = { Text("Prac / ${subject.practicalMax}") },
+                    singleLine = true
+                )
+            }
+        }
     }
 }

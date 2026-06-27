@@ -31,5 +31,7 @@ data class MarkEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val studentId: Int,
     val subjectId: Int,
-    val marksObtained: Int
+    val mcqMarks: Int?,
+    val writtenMarks: Int?,
+    val practicalMarks: Int?
 )

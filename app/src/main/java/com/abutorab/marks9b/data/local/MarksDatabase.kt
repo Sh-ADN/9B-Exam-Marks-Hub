@@ -9,7 +9,7 @@ import com.abutorab.marks9b.data.local.dao.*
 
 @Database(
     entities = [YearEntity::class, TermEntity::class, StudentEntity::class, SubjectEntity::class, MarkEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class MarksDatabase : RoomDatabase() {

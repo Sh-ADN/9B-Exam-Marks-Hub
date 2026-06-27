@@ -21,10 +21,18 @@ data class SubjectEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val termId: Int,
     val name: String,
+    val sheetRole: String,
+    val applicabilityType: String,
+    val applicabilityValue: String?,
     val fullMarks: Int,
-    val passMarks: Int,
-    val sheetRole: String 
+    val mcqMax: Int?,
+    val writtenMax: Int?,
+    val practicalMax: Int?
 )
+
+enum class ApplicabilityType {
+    ALL, RELIGION, GROUP, OPTIONAL_TYPE
+}
 
 enum class SheetRole(val code: String) {
     NONE("NONE"), 

@@ -18,7 +18,7 @@ class MarksRepository(
 
     fun getTermsForYear(yearId: Int): Flow<List<TermEntity>> = termDao.getTermsForYear(yearId)
     fun getTermById(termId: Int): Flow<TermEntity?> = termDao.getTermById(termId)
-    suspend fun insertTerm(term: TermEntity) = termDao.insert(term)
+    suspend fun insertTerm(term: TermEntity): Long = termDao.insert(term)
     suspend fun updateTerm(term: TermEntity) = termDao.update(term)
     suspend fun deleteTerm(term: TermEntity) = termDao.delete(term)
 
@@ -33,8 +33,7 @@ class MarksRepository(
     suspend fun deleteSubject(subject: SubjectEntity) = subjectDao.delete(subject)
 
     fun getMarksForSubject(subjectId: Int): Flow<List<MarkEntity>> = markDao.getMarksForSubject(subjectId)
-    suspend fun saveMark(studentId: Int, subjectId: Int, marksObtained: Int) {
-        val mark = MarkEntity(studentId = studentId, subjectId = subjectId, marksObtained = marksObtained)
+    suspend fun saveMark(mark: MarkEntity) {
         markDao.upsertMark(mark)
     }
 }

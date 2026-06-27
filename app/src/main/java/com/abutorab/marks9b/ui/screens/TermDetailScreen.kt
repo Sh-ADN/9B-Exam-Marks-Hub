@@ -66,7 +66,7 @@ fun TermDetailScreen(
             if (selectedTabIndex == 0) {
                 StudentsTab(yearId = yearId, viewModel = viewModel, snackbarHostState = snackbarHostState, coroutineScope = coroutineScope)
             } else if (selectedTabIndex == 1) {
-                SubjectsTab(termId = termId, viewModel = viewModel, snackbarHostState = snackbarHostState, coroutineScope = coroutineScope)
+                SubjectsTab(termId = termId, viewModel = viewModel)
             } else {
                 MarksTab(termId = termId, viewModel = viewModel, onNavigateToMarksEntry = onNavigateToMarksEntry)
             }
@@ -149,68 +149,55 @@ fun StudentsTab(yearId: Int, viewModel: MarksViewModel, snackbarHostState: Snack
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun SubjectsTab(termId: Int, viewModel: MarksViewModel, snackbarHostState: SnackbarHostState, coroutineScope: kotlinx.coroutines.CoroutineScope) {
+fun SubjectsTab(termId: Int, viewModel: MarksViewModel) {
     val subjects by viewModel.getSubjectsForTerm(termId).collectAsStateWithLifecycle(initialValue = emptyList())
-    var showAddSheet by remember { mutableStateOf(false) }
-    var subjectToEdit by remember { mutableStateOf<SubjectEntity?>(null) }
+
+    val compulsory = subjects.filter { it.applicabilityType == com.abutorab.marks9b.data.local.entity.ApplicabilityType.ALL.name }
+    val religion = subjects.filter { it.applicabilityType == com.abutorab.marks9b.data.local.entity.ApplicabilityType.RELIGION.name }
+    val groupElectives = subjects.filter { it.applicabilityType == com.abutorab.marks9b.data.local.entity.ApplicabilityType.GROUP.name }
+    val optional = subjects.filter { it.applicabilityType == com.abutorab.marks9b.data.local.entity.ApplicabilityType.OPTIONAL_TYPE.name }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(contentPadding = PaddingValues(bottom = 80.dp)) {
-            items(subjects, key = { it.id }) { subject ->
-                SwipeToDeleteContainer(
-                    item = subject,
-                    confirmTitle = "Delete subject?",
-                    confirmMessage = "Delete ${subject.name}?",
-                    onDelete = { 
-                        coroutineScope.launch {
-                            viewModel.snapshotAndDeleteSubject(it)
-                            val result = snackbarHostState.showSnackbar("Subject deleted", "Undo", duration = SnackbarDuration.Short)
-                            if (result == SnackbarResult.ActionPerformed) {
-                                viewModel.undoLastDelete()
-                            }
-                        }
-                    }
-                ) {
-                    ListItem(
-                        headlineContent = { Text(subject.name) },
-                        supportingContent = { Text("Full: ${subject.fullMarks} | Pass: ${subject.passMarks} | Role: ${subject.sheetRole}") },
-                        modifier = Modifier.combinedClickable(
-                            onClick = {},
-                            onLongClick = { subjectToEdit = subject }
-                        )
-                    )
-                    HorizontalDivider()
-                }
+            if (compulsory.isNotEmpty()) {
+                item { SubjectSectionHeader("Compulsory") }
+                items(compulsory, key = { it.id }) { subject -> SubjectRow(subject) }
+            }
+            if (religion.isNotEmpty()) {
+                item { SubjectSectionHeader("Religion") }
+                items(religion, key = { it.id }) { subject -> SubjectRow(subject) }
+            }
+            if (groupElectives.isNotEmpty()) {
+                item { SubjectSectionHeader("Group Electives") }
+                items(groupElectives, key = { it.id }) { subject -> SubjectRow(subject) }
+            }
+            if (optional.isNotEmpty()) {
+                item { SubjectSectionHeader("Optional") }
+                items(optional, key = { it.id }) { subject -> SubjectRow(subject) }
             }
         }
-
-        FloatingActionButton(
-            onClick = { showAddSheet = true },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
-        ) {
-            Icon(Icons.Default.Add, contentDescription = "Add Subject")
-        }
     }
+}
 
-    if (showAddSheet) {
-        ModalBottomSheet(onDismissRequest = { showAddSheet = false }) {
-            SubjectForm(termId = termId, initialSubject = null, onSubmit = { subject ->
-                viewModel.insertSubject(subject)
-                showAddSheet = false
-            })
-        }
-    }
+@Composable
+fun SubjectSectionHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleMedium,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+    )
+}
 
-    if (subjectToEdit != null) {
-        ModalBottomSheet(onDismissRequest = { subjectToEdit = null }) {
-            SubjectForm(termId = termId, initialSubject = subjectToEdit, onSubmit = { subject ->
-                viewModel.updateSubject(subject)
-                subjectToEdit = null
-            })
-        }
-    }
+@Composable
+fun SubjectRow(subject: com.abutorab.marks9b.data.local.entity.SubjectEntity) {
+    ListItem(
+        headlineContent = { Text(subject.name) },
+        supportingContent = { Text("Full Marks: ${subject.fullMarks}") }
+    )
+    HorizontalDivider()
 }
 
 @Composable
@@ -290,61 +277,7 @@ fun StudentForm(yearId: Int, initialStudent: StudentEntity?, onSubmit: (StudentE
     }
 }
 
-@Composable
-fun SubjectForm(termId: Int, initialSubject: SubjectEntity?, onSubmit: (SubjectEntity) -> Unit) {
-    var name by remember { mutableStateOf(initialSubject?.name ?: "") }
-    var fullMarks by remember { mutableStateOf(initialSubject?.fullMarks?.toString() ?: "") }
-    var passMarks by remember { mutableStateOf(initialSubject?.passMarks?.toString() ?: "") }
-    var role by remember { mutableStateOf(SheetRole.fromCode(initialSubject?.sheetRole ?: SheetRole.NONE.code)) }
 
-    Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
-        Text(if (initialSubject == null) "Add Subject" else "Edit Subject", style = MaterialTheme.typography.titleLarge)
-        Spacer(Modifier.height(8.dp))
-        OutlinedTextField(
-            value = name, onValueChange = { name = it },
-            label = { Text("Name") }, modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
-                value = fullMarks, onValueChange = { fullMarks = it },
-                label = { Text("Full Marks") }, modifier = Modifier.weight(1f),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-            )
-            OutlinedTextField(
-                value = passMarks, onValueChange = { passMarks = it },
-                label = { Text("Pass Marks") }, modifier = Modifier.weight(1f),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-            )
-        }
-        Spacer(Modifier.height(8.dp))
-        
-        EnumDropdown(label = "Sheet Role", selected = role.name, options = SheetRole.values().map { it.name }) {
-            role = SheetRole.valueOf(it)
-        }
-
-        Spacer(Modifier.height(16.dp))
-        Button(
-            onClick = {
-                val full = fullMarks.toIntOrNull() ?: 0
-                val pass = passMarks.toIntOrNull() ?: 0
-                if (name.isNotBlank() && full > 0) {
-                    onSubmit(
-                        SubjectEntity(
-                            id = initialSubject?.id ?: 0,
-                            termId = termId, name = name, fullMarks = full,
-                            passMarks = pass, sheetRole = role.code
-                        )
-                    )
-                }
-            },
-            modifier = Modifier.align(Alignment.End)
-        ) {
-            Text("Save")
-        }
-        Spacer(Modifier.height(32.dp))
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
