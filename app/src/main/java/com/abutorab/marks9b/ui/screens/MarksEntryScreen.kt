@@ -17,12 +17,15 @@ import com.abutorab.marks9b.data.local.entity.MarkEntity
 import com.abutorab.marks9b.data.local.entity.ApplicabilityType
 import com.abutorab.marks9b.ui.MarksViewModel
 
+import com.abutorab.marks9b.data.remote.SheetsSyncService
+import kotlinx.coroutines.launch
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
     val term by viewModel.getTermById(termId).collectAsStateWithLifecycle(initialValue = null)
-    if (term == null) return
-    val yearId = term!!.yearId
+    val currentTerm = term ?: return
+    val yearId = currentTerm.yearId
 
     val subjects by viewModel.getSubjectsForTerm(termId).collectAsStateWithLifecycle(initialValue = emptyList())
     val subject = subjects.find { it.id == subjectId } ?: return
@@ -41,21 +44,74 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
         }
     }
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+    var isExporting by remember { mutableStateOf(false) }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(subject.name) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                ),
+                actions = {
+                    val sheetId = currentTerm.sheetId
+                    if (isExporting) {
+                        CircularProgressIndicator(modifier = Modifier.padding(16.dp).size(24.dp))
+                    } else {
+                        Button(
+                            onClick = {
+                                if (sheetId != null) {
+                                    isExporting = true
+                                    coroutineScope.launch {
+                                        val entries = filteredStudents.mapNotNull { student ->
+                                            val mark = marks.find { it.studentId == student.id }
+                                            if (mark == null) null
+                                            else {
+                                                val values = mutableListOf<Int>()
+                                                if (subject.mcqMax != null) values.add(mark.mcqMarks ?: 0)
+                                                if (subject.writtenMax != null) values.add(mark.writtenMarks ?: 0)
+                                                if (subject.practicalMax != null) values.add(mark.practicalMarks ?: 0)
+                                                SheetsSyncService.ExportEntry(student.roll, student.name, values)
+                                            }
+                                        }
+                                        
+                                        val result = SheetsSyncService.exportSubjectMarks(sheetId, subject.sheetTabName, entries)
+                                        isExporting = false
+                                        if (result.isSuccess) {
+                                            snackbarHostState.showSnackbar("Exported ${result.getOrNull()} students successfully")
+                                        } else {
+                                            snackbarHostState.showSnackbar(result.exceptionOrNull()?.message ?: "Export failed")
+                                        }
+                                    }
+                                }
+                            },
+                            enabled = sheetId != null,
+                            modifier = Modifier.padding(end = 8.dp)
+                        ) {
+                            Text("Export to Sheet")
+                        }
+                    }
+                }
             )
         }
     ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier.padding(innerPadding).fillMaxSize(),
-            contentPadding = PaddingValues(16.dp)
-        ) {
+        Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
+            if (currentTerm.sheetId == null) {
+                Text(
+                    text = "Link a Google Sheet to this term first (edit the term to add one).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                contentPadding = PaddingValues(16.dp)
+            ) {
             items(filteredStudents, key = { it.id }) { student ->
                 val mark = marks.find { it.studentId == student.id }
                 MarkEntryRow(
@@ -79,6 +135,7 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
             }
         }
     }
+}
 }
 
 @Composable

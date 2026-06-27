@@ -27,6 +27,7 @@ android {
     targetSdk = 35
     versionCode = vCode
     versionName = vName
+    buildConfigField("String", "SHEETS_SYNC_SECRET", "\"" + (System.getenv("SHEETS_SYNC_SECRET") ?: "") + "\"")
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

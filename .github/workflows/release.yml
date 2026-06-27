@@ -77,6 +77,7 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          SHEETS_SYNC_SECRET: ${{ secrets.SHEETS_SYNC_SECRET }}
         run: gradle assembleRelease
 
       - name: Create GitHub Release

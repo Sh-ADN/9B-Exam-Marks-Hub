@@ -20,13 +20,14 @@ class MarksViewModel(
 
     fun getTermsForYear(yearId: Int): Flow<List<TermEntity>> = repository.getTermsForYear(yearId)
     fun getTermById(termId: Int): Flow<TermEntity?> = repository.getTermById(termId)
-    fun insertTerm(yearId: Int, label: String) = viewModelScope.launch {
-        val termId = repository.insertTerm(TermEntity(yearId = yearId, label = label))
+    fun insertTerm(yearId: Int, label: String, sheetId: String?) = viewModelScope.launch {
+        val termId = repository.insertTerm(TermEntity(yearId = yearId, label = label, sheetId = sheetId))
         com.abutorab.marks9b.data.local.entity.SubjectCatalog.subjects.forEach { data ->
             repository.insertSubject(
                 SubjectEntity(
                     termId = termId.toInt(),
                     name = data.name,
+                    sheetTabName = data.sheetTabName,
                     sheetRole = data.sheetRole,
                     applicabilityType = data.applicabilityType,
                     applicabilityValue = data.applicabilityValue,

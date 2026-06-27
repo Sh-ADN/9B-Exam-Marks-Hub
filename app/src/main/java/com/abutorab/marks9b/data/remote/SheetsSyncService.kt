@@ -1,0 +1,70 @@
+package com.abutorab.marks9b.data.remote
+
+import com.abutorab.marks9b.BuildConfig
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.io.OutputStreamWriter
+
+object SheetsSyncService {
+    private const val ENDPOINT = "https://script.google.com/macros/s/AKfycbyMJngsMEoQ3pbKFSXrbt994G_5FlQ0Yp2GcXuxI6DkKJrS2OKT3FpxdemulU0tIiZ0uA/exec"
+
+    data class ExportEntry(
+        val roll: Int,
+        val name: String,
+        val values: List<Int>
+    )
+
+    suspend fun exportSubjectMarks(sheetId: String, tabName: String, entries: List<ExportEntry>): Result<Int> = withContext(Dispatchers.IO) {
+        try {
+            val url = URL(ENDPOINT)
+            val connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "POST"
+            connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+            connection.doOutput = true
+
+            val entriesArray = JSONArray()
+            entries.forEach { entry ->
+                val entryObj = JSONObject()
+                entryObj.put("roll", entry.roll)
+                entryObj.put("name", entry.name)
+                val valuesArray = JSONArray()
+                entry.values.forEach { valuesArray.put(it) }
+                entryObj.put("values", valuesArray)
+                entriesArray.put(entryObj)
+            }
+
+            val requestJson = JSONObject()
+            requestJson.put("secret", BuildConfig.SHEETS_SYNC_SECRET)
+            requestJson.put("spreadsheetId", sheetId)
+            requestJson.put("inputTabName", tabName)
+            requestJson.put("entries", entriesArray)
+
+            OutputStreamWriter(connection.outputStream, "UTF-8").use { writer ->
+                writer.write(requestJson.toString())
+                writer.flush()
+            }
+
+            val responseCode = connection.responseCode
+            if (responseCode == HttpURLConnection.HTTP_OK || responseCode == HttpURLConnection.HTTP_MOVED_TEMP || responseCode == HttpURLConnection.HTTP_MOVED_PERM) {
+                // Read response
+                val inputStream = if (responseCode >= 400) connection.errorStream else connection.inputStream
+                val responseText = inputStream.bufferedReader().use { it.readText() }
+                val responseJson = JSONObject(responseText)
+                
+                if (responseJson.optString("status") == "success") {
+                    Result.success(entries.size)
+                } else {
+                    Result.failure(Exception(responseJson.optString("message", "Unknown error from script")))
+                }
+            } else {
+                Result.failure(Exception("HTTP error code: $responseCode"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+}

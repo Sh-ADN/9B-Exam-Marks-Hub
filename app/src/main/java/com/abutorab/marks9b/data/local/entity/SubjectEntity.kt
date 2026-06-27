@@ -21,6 +21,7 @@ data class SubjectEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val termId: Int,
     val name: String,
+    val sheetTabName: String,
     val sheetRole: String,
     val applicabilityType: String,
     val applicabilityValue: String?,

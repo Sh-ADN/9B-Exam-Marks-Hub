@@ -79,20 +79,32 @@ fun TermListScreen(
 
         if (showAddDialog) {
             var label by remember { mutableStateOf("") }
+            var sheetUrl by remember { mutableStateOf("") }
             AlertDialog(
                 onDismissRequest = { showAddDialog = false },
                 title = { Text("Add Term") },
                 text = {
-                    OutlinedTextField(
-                        value = label,
-                        onValueChange = { label = it },
-                        label = { Text("Term (e.g. Half Yearly)") }
-                    )
+                    Column {
+                        OutlinedTextField(
+                            value = label,
+                            onValueChange = { label = it },
+                            label = { Text("Term (e.g. Half Yearly)") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = sheetUrl,
+                            onValueChange = { sheetUrl = it },
+                            label = { Text("Google Sheet URL (optional)") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 },
                 confirmButton = {
                     TextButton(onClick = {
                         if (label.isNotBlank()) {
-                            viewModel.insertTerm(yearId, label)
+                            val sheetId = extractSheetId(sheetUrl)
+                            viewModel.insertTerm(yearId, label, sheetId)
                             showAddDialog = false
                         }
                     }) {
@@ -107,20 +119,32 @@ fun TermListScreen(
 
         if (termToEdit != null) {
             var label by remember { mutableStateOf(termToEdit!!.label) }
+            var sheetUrl by remember { mutableStateOf(termToEdit!!.sheetId?.let { "https://docs.google.com/spreadsheets/d/$it/edit" } ?: "") }
             AlertDialog(
                 onDismissRequest = { termToEdit = null },
                 title = { Text("Edit Term") },
                 text = {
-                    OutlinedTextField(
-                        value = label,
-                        onValueChange = { label = it },
-                        label = { Text("Term") }
-                    )
+                    Column {
+                        OutlinedTextField(
+                            value = label,
+                            onValueChange = { label = it },
+                            label = { Text("Term") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = sheetUrl,
+                            onValueChange = { sheetUrl = it },
+                            label = { Text("Google Sheet URL (optional)") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 },
                 confirmButton = {
                     TextButton(onClick = {
                         if (label.isNotBlank()) {
-                            viewModel.updateTerm(termToEdit!!.copy(label = label))
+                            val sheetId = extractSheetId(sheetUrl)
+                            viewModel.updateTerm(termToEdit!!.copy(label = label, sheetId = sheetId))
                             termToEdit = null
                         }
                     }) {
@@ -133,4 +157,10 @@ fun TermListScreen(
             )
         }
     }
+}
+
+fun extractSheetId(url: String): String? {
+    if (url.isBlank()) return null
+    if (!url.contains("/d/")) return url.trim() // User might have pasted just the ID
+    return url.substringAfter("/d/").substringBefore("/").takeIf { it.isNotBlank() }
 }

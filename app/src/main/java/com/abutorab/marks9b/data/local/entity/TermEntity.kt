@@ -20,5 +20,6 @@ import androidx.room.PrimaryKey
 data class TermEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val yearId: Int,
-    val label: String
+    val label: String,
+    val sheetId: String? = null
 )
