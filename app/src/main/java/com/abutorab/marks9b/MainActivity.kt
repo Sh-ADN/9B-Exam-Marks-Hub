@@ -134,7 +134,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun SplashScreen(onNavigateToHome: () -> Unit) {
   LaunchedEffect(Unit) {
-    delay(1500)
+    delay(1100)
     onNavigateToHome()
   }
   

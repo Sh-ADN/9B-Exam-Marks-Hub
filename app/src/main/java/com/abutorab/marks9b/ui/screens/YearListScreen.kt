@@ -1,12 +1,14 @@
 package com.abutorab.marks9b.ui.screens
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -45,33 +47,87 @@ fun YearListScreen(
             }
         }
     ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(innerPadding),
-            contentPadding = PaddingValues(16.dp)
-        ) {
-            items(years, key = { it.id }) { year ->
-                SwipeToDeleteContainer(
-                    item = year,
-                    confirmTitle = "Delete year?",
-                    confirmMessage = "This will permanently delete '${year.label}' and ALL its terms, students, and subjects. This cannot be undone.",
-                    onDelete = { 
-                        coroutineScope.launch {
-                            viewModel.snapshotAndDeleteYear(it)
-                            val result = snackbarHostState.showSnackbar("Year deleted", "Undo", duration = SnackbarDuration.Short)
-                            if (result == SnackbarResult.ActionPerformed) {
-                                viewModel.undoLastDelete()
+        if (years.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(innerPadding),
+                contentAlignment = androidx.compose.ui.Alignment.Center
+            ) {
+                Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Default.DateRange,
+                        contentDescription = "No years",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        text = "No years yet",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Tap + to add your first year",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(innerPadding),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(years, key = { it.id }) { year ->
+                    SwipeToDeleteContainer(
+                        item = year,
+                        confirmTitle = "Delete year?",
+                        confirmMessage = "This will permanently delete '${year.label}' and ALL its terms, students, and subjects. This cannot be undone.",
+                        onDelete = { 
+                            coroutineScope.launch {
+                                viewModel.snapshotAndDeleteYear(it)
+                                val result = snackbarHostState.showSnackbar("Year deleted", "Undo", duration = SnackbarDuration.Short)
+                                if (result == SnackbarResult.ActionPerformed) {
+                                    viewModel.undoLastDelete()
+                                }
+                            }
+                        }
+                    ) {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .combinedClickable(
+                                    onClick = { onNavigateToTerms(year.id) },
+                                    onLongClick = { yearToEdit = year }
+                                )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .background(MaterialTheme.colorScheme.primaryContainer, androidx.compose.foundation.shape.CircleShape),
+                                    contentAlignment = androidx.compose.ui.Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.DateRange,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Text(
+                                    text = year.label,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
                             }
                         }
                     }
-                ) {
-                    ListItem(
-                        headlineContent = { Text(year.label) },
-                        modifier = Modifier.combinedClickable(
-                            onClick = { onNavigateToTerms(year.id) },
-                            onLongClick = { yearToEdit = year }
-                        )
-                    )
-                    HorizontalDivider()
                 }
             }
         }

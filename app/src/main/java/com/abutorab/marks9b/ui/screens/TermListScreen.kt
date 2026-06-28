@@ -1,12 +1,15 @@
 package com.abutorab.marks9b.ui.screens
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -46,33 +49,94 @@ fun TermListScreen(
             }
         }
     ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(innerPadding),
-            contentPadding = PaddingValues(16.dp)
-        ) {
-            items(terms, key = { it.id }) { term ->
-                SwipeToDeleteContainer(
-                    item = term,
-                    confirmTitle = "Delete term?",
-                    confirmMessage = "This will permanently delete '${term.label}' and ALL its students and subjects. This cannot be undone.",
-                    onDelete = { 
-                        coroutineScope.launch {
-                            viewModel.snapshotAndDeleteTerm(it)
-                            val result = snackbarHostState.showSnackbar("Term deleted", "Undo", duration = SnackbarDuration.Short)
-                            if (result == SnackbarResult.ActionPerformed) {
-                                viewModel.undoLastDelete()
+        if (terms.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(innerPadding),
+                contentAlignment = androidx.compose.ui.Alignment.Center
+            ) {
+                Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Default.DateRange,
+                        contentDescription = "No terms",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        text = "No terms yet",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Tap + to add Mid Term or Annual",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(innerPadding),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(terms, key = { it.id }) { term ->
+                    SwipeToDeleteContainer(
+                        item = term,
+                        confirmTitle = "Delete term?",
+                        confirmMessage = "This will permanently delete '${term.label}' and ALL its students and subjects. This cannot be undone.",
+                        onDelete = { 
+                            coroutineScope.launch {
+                                viewModel.snapshotAndDeleteTerm(it)
+                                val result = snackbarHostState.showSnackbar("Term deleted", "Undo", duration = SnackbarDuration.Short)
+                                if (result == SnackbarResult.ActionPerformed) {
+                                    viewModel.undoLastDelete()
+                                }
+                            }
+                        }
+                    ) {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .combinedClickable(
+                                    onClick = { onNavigateToTermDetail(term.id) },
+                                    onLongClick = { termToEdit = term }
+                                )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .background(MaterialTheme.colorScheme.primaryContainer, androidx.compose.foundation.shape.CircleShape),
+                                    contentAlignment = androidx.compose.ui.Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = if (term.examPeriod == "MID_TERM") Icons.Default.Edit else Icons.Default.DateRange,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column {
+                                    Text(
+                                        text = term.label,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = if (term.examPeriod == "MID_TERM") "Mid Term" else "Annual",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
                     }
-                ) {
-                    ListItem(
-                        headlineContent = { Text(term.label) },
-                        modifier = Modifier.combinedClickable(
-                            onClick = { onNavigateToTermDetail(term.id) },
-                            onLongClick = { termToEdit = term }
-                        )
-                    )
-                    HorizontalDivider()
                 }
             }
         }

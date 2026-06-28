@@ -11,6 +11,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -40,6 +42,12 @@ fun TermDetailScreen(
     val term by viewModel.getTermById(termId).collectAsStateWithLifecycle(initialValue = null)
     if (term == null) return
     val yearId = term!!.yearId
+    
+    val launcher = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            viewModel.importStudentsFromCsv(yearId, uri, context)
+        }
+    }
 
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("Students", "Subjects", "Marks")
@@ -55,7 +63,24 @@ fun TermDetailScreen(
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer,
                         titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
+                    ),
+                    actions = {
+                        if (selectedTabIndex == 0) {
+                            var showMenu by remember { mutableStateOf(false) }
+                            IconButton(onClick = { showMenu = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "More options")
+                            }
+                            DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("Import CSV") },
+                                    onClick = {
+                                        showMenu = false
+                                        launcher.launch("*/*")
+                                    }
+                                )
+                            }
+                        }
+                    }
                 )
                 TabRow(selectedTabIndex = selectedTabIndex) {
                     tabs.forEachIndexed { index, title ->
@@ -87,53 +112,114 @@ fun StudentsTab(yearId: Int, viewModel: MarksViewModel, snackbarHostState: Snack
     val students by viewModel.getStudentsForYear(yearId).collectAsStateWithLifecycle(initialValue = emptyList())
     var showAddSheet by remember { mutableStateOf(false) }
     var studentToEdit by remember { mutableStateOf<StudentEntity?>(null) }
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val launcher = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) {
-            viewModel.importStudentsFromCsv(yearId, uri, context)
-        }
-    }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(contentPadding = PaddingValues(bottom = 140.dp)) {
-            items(students, key = { it.id }) { student ->
-                SwipeToDeleteContainer(
-                    item = student,
-                    confirmTitle = "Delete student?",
-                    confirmMessage = "Delete ${student.name} (Roll ${student.roll})?",
-                    onDelete = { 
-                        coroutineScope.launch {
-                            viewModel.snapshotAndDeleteStudent(it)
-                            val result = snackbarHostState.showSnackbar("Student deleted", "Undo", duration = SnackbarDuration.Short)
-                            if (result == SnackbarResult.ActionPerformed) {
-                                viewModel.undoLastDelete()
+        if (students.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = androidx.compose.ui.Alignment.Center
+            ) {
+                Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "No students",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        text = "No students yet",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Import a CSV or tap + to add one",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(bottom = 80.dp)
+            ) {
+                items(students, key = { it.id }) { student ->
+                    SwipeToDeleteContainer(
+                        item = student,
+                        confirmTitle = "Delete student?",
+                        confirmMessage = "Delete ${student.name} (Roll ${student.roll})?",
+                        onDelete = { 
+                            coroutineScope.launch {
+                                viewModel.snapshotAndDeleteStudent(it)
+                                val result = snackbarHostState.showSnackbar("Student deleted", "Undo", duration = SnackbarDuration.Short)
+                                if (result == SnackbarResult.ActionPerformed) {
+                                    viewModel.undoLastDelete()
+                                }
+                            }
+                        }
+                    ) {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .combinedClickable(
+                                    onClick = {},
+                                    onLongClick = { studentToEdit = student }
+                                )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .background(MaterialTheme.colorScheme.primaryContainer, androidx.compose.foundation.shape.CircleShape),
+                                    contentAlignment = androidx.compose.ui.Alignment.Center
+                                ) {
+                                    Text(
+                                        text = student.name.take(1).uppercase(),
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        style = MaterialTheme.typography.titleMedium
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column {
+                                    Text(
+                                        text = student.name,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)) {
+                                            Text(text = "Roll ${student.roll}", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp), color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                        }
+                                        Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)) {
+                                            Text(text = student.group, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp), color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                        }
+                                        if (student.religion.isNotBlank()) {
+                                            Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)) {
+                                                Text(text = student.religion, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp), color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
-                ) {
-                    ListItem(
-                        headlineContent = { Text(student.name) },
-                        supportingContent = { Text("Roll: ${student.roll} | Rel: ${student.religion} | Grp: ${student.group}") },
-                        modifier = Modifier.combinedClickable(
-                            onClick = {},
-                            onLongClick = { studentToEdit = student }
-                        )
-                    )
-                    HorizontalDivider()
                 }
             }
         }
 
-        Column(modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp), horizontalAlignment = Alignment.End) {
-            ExtendedFloatingActionButton(
-                onClick = { launcher.launch("*/*") },
-                text = { Text("CSV") },
-                icon = { }
-            )
-            Spacer(Modifier.height(8.dp))
-            FloatingActionButton(onClick = { showAddSheet = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Add Student")
-            }
+        FloatingActionButton(
+            onClick = { showAddSheet = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Add Student")
         }
     }
 
