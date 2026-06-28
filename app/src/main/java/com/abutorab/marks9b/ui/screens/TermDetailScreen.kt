@@ -19,6 +19,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.platform.LocalContext
+import com.abutorab.marks9b.data.local.PreferencesHelper
 import com.abutorab.marks9b.data.local.entity.*
 import com.abutorab.marks9b.ui.MarksViewModel
 import kotlinx.coroutines.launch
@@ -30,6 +32,11 @@ fun TermDetailScreen(
     viewModel: MarksViewModel,
     onNavigateToMarksEntry: (Int, Int) -> Unit
 ) {
+    val context = LocalContext.current
+    LaunchedEffect(termId) {
+        PreferencesHelper.saveLastOpenedTerm(context, termId)
+    }
+
     val term by viewModel.getTermById(termId).collectAsStateWithLifecycle(initialValue = null)
     if (term == null) return
     val yearId = term!!.yearId

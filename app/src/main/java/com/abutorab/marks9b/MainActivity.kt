@@ -32,6 +32,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material3.Icon
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -69,7 +81,11 @@ class MainActivity : ComponentActivity() {
             })
           }
           composable("home") {
-            HomeScreen(onNavigateToManage = { navController.navigate("yearList") })
+            HomeScreen(
+                viewModel = viewModel,
+                onNavigateToManage = { navController.navigate("yearList") },
+                onNavigateToTermDetail = { termId -> navController.navigate("termDetail/$termId") }
+            )
           }
           composable("yearList") {
             YearListScreen(viewModel = viewModel, onNavigateToTerms = { yearId ->
@@ -167,7 +183,15 @@ fun SplashScreen(onNavigateToHome: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(onNavigateToManage: () -> Unit) {
+fun HomeScreen(
+    viewModel: MarksViewModel,
+    onNavigateToManage: () -> Unit,
+    onNavigateToTermDetail: (Int) -> Unit
+) {
+  val context = LocalContext.current
+  val activeTermContext by viewModel.getActiveTermContext(context).collectAsStateWithLifecycle(initialValue = null)
+  val years by viewModel.getAllYears().collectAsStateWithLifecycle(initialValue = emptyList())
+
   Scaffold(
     topBar = {
       TopAppBar(
@@ -183,19 +207,108 @@ fun HomeScreen(onNavigateToManage: () -> Unit) {
     Box(
       modifier = Modifier
         .fillMaxSize()
-        .padding(innerPadding),
-      contentAlignment = Alignment.Center
+        .padding(innerPadding)
+        .padding(16.dp)
     ) {
-      Column(horizontalAlignment = Alignment.CenterHorizontally) {
-          Text(
-            text = "Coming soon",
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-          )
-          Spacer(modifier = Modifier.height(16.dp))
-          Button(onClick = onNavigateToManage) {
+      Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+        modifier = Modifier.fillMaxSize()
+      ) {
+          if (activeTermContext != null) {
+              val term = activeTermContext!!
+              val examPeriodLabel = if (term.examPeriod == "MID_TERM") "Mid Term" else "Annual"
+              
+              Card(
+                  onClick = { onNavigateToTermDetail(term.termId) },
+                  colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                  modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
+              ) {
+                  Column(modifier = Modifier.padding(24.dp)) {
+                      Text(
+                          text = "${term.yearLabel} · ${term.termLabel}",
+                          style = MaterialTheme.typography.titleLarge,
+                          color = MaterialTheme.colorScheme.onSurface
+                      )
+                      Text(
+                          text = examPeriodLabel,
+                          style = MaterialTheme.typography.bodyMedium,
+                          color = MaterialTheme.colorScheme.onSurfaceVariant
+                      )
+                      Spacer(modifier = Modifier.height(24.dp))
+                      Row(
+                          modifier = Modifier.fillMaxWidth(),
+                          horizontalArrangement = Arrangement.SpaceEvenly
+                      ) {
+                          Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                              Text(
+                                  text = term.studentCount.toString(),
+                                  style = MaterialTheme.typography.headlineMedium,
+                                  color = MaterialTheme.colorScheme.tertiary
+                              )
+                              Text(
+                                  text = "Students",
+                                  style = MaterialTheme.typography.labelLarge,
+                                  color = MaterialTheme.colorScheme.onSurfaceVariant
+                              )
+                          }
+                          Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                              Text(
+                                  text = term.subjectCount.toString(),
+                                  style = MaterialTheme.typography.headlineMedium,
+                                  color = MaterialTheme.colorScheme.tertiary
+                              )
+                              Text(
+                                  text = "Subjects",
+                                  style = MaterialTheme.typography.labelLarge,
+                                  color = MaterialTheme.colorScheme.onSurfaceVariant
+                              )
+                          }
+                      }
+                  }
+              }
+          } else {
+              Card(
+                  colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                  modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
+              ) {
+                  Column(
+                      horizontalAlignment = Alignment.CenterHorizontally,
+                      modifier = Modifier.padding(32.dp).fillMaxWidth()
+                  ) {
+                      Icon(
+                          imageVector = Icons.Default.DateRange,
+                          contentDescription = "No Term",
+                          tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                          modifier = Modifier.size(48.dp)
+                      )
+                      Spacer(modifier = Modifier.height(16.dp))
+                      Text(
+                          text = "No active term yet",
+                          style = MaterialTheme.typography.titleMedium,
+                          color = MaterialTheme.colorScheme.onSurface
+                      )
+                      Text(
+                          text = "Open a term from Manage Data to see it here.",
+                          style = MaterialTheme.typography.bodyMedium,
+                          color = MaterialTheme.colorScheme.onSurfaceVariant,
+                          modifier = Modifier.padding(top = 8.dp),
+                          textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                      )
+                  }
+              }
+          }
+
+          FilledTonalButton(onClick = onNavigateToManage) {
               Text("Manage Data")
           }
+          
+          Spacer(modifier = Modifier.height(16.dp))
+          Text(
+              text = "${years.size} years tracked",
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
+          )
       }
     }
   }

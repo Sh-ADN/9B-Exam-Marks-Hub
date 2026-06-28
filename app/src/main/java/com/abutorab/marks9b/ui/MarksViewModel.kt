@@ -9,10 +9,47 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
+import android.content.Context
+import com.abutorab.marks9b.data.local.PreferencesHelper
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+
+data class ActiveTermContext(
+    val yearId: Int, val yearLabel: String,
+    val termId: Int, val termLabel: String, val examPeriod: String,
+    val studentCount: Int, val subjectCount: Int
+)
+
 class MarksViewModel(
     application: Application,
     private val repository: MarksRepository
 ) : AndroidViewModel(application) {
+
+    @kotlinx.coroutines.ExperimentalCoroutinesApi
+    fun getActiveTermContext(context: Context): Flow<ActiveTermContext?> {
+        val lastTermId = PreferencesHelper.getLastOpenedTerm(context) ?: return flowOf(null)
+        return getTermById(lastTermId).flatMapLatest { term ->
+            if (term == null) return@flatMapLatest flowOf(null)
+            combine(
+                getYearById(term.yearId),
+                getStudentsForYear(term.yearId),
+                getSubjectsForTerm(term.id)
+            ) { year, students, subjects ->
+                if (year == null) null
+                else ActiveTermContext(
+                    yearId = year.id,
+                    yearLabel = year.label,
+                    termId = term.id,
+                    termLabel = term.label,
+                    examPeriod = term.examPeriod,
+                    studentCount = students.size,
+                    subjectCount = subjects.size
+                )
+            }
+        }
+    }
+
     fun getAllYears(): Flow<List<YearEntity>> = repository.getAllYears()
     fun getYearById(yearId: Int): Flow<YearEntity?> = repository.getYearById(yearId)
     fun insertYear(label: String, sheetId: String?) = viewModelScope.launch { repository.insertYear(YearEntity(label = label, sheetId = sheetId)) }
