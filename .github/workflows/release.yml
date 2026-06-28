@@ -63,7 +63,7 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add version.properties
           git commit -m "Bump version to $NEW_NAME ($NEW_CODE) [skip ci]" || echo "No changes to commit"
-          git push
+          git push origin HEAD:${{ github.ref_name }}
 
       - name: Decode Keystore
         env:
@@ -84,6 +84,13 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.version_name }}
-          name: Release v${{ steps.version.outputs.version_name }}
+          name: 9B Exam Marks Hub v${{ steps.version.outputs.version_name }}
+          body: |
+            📱 **9B Exam Marks Hub v${{ steps.version.outputs.version_name }}**
+            
+            **How to install:**
+            1. Download the APK file below
+            2. Open it on your Android phone
+            3. If asked, allow "Install from unknown sources"
+            4. Install and enjoy!
           files: app/build/outputs/apk/release/*.apk
-          generate_release_notes: true
