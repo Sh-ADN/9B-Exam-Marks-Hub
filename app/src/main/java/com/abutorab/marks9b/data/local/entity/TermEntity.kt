@@ -21,5 +21,9 @@ data class TermEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val yearId: Int,
     val label: String,
-    val sheetId: String? = null
+    val examPeriod: String
 )
+
+enum class ExamPeriod {
+    MID_TERM, ANNUAL
+}

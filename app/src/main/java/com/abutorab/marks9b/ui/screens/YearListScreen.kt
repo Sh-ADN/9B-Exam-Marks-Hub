@@ -78,20 +78,32 @@ fun YearListScreen(
 
         if (showAddDialog) {
             var label by remember { mutableStateOf("") }
+            var sheetUrl by remember { mutableStateOf("") }
             AlertDialog(
                 onDismissRequest = { showAddDialog = false },
                 title = { Text("Add Year") },
                 text = {
-                    OutlinedTextField(
-                        value = label,
-                        onValueChange = { label = it },
-                        label = { Text("Year (e.g. 2026)") }
-                    )
+                    Column {
+                        OutlinedTextField(
+                            value = label,
+                            onValueChange = { label = it },
+                            label = { Text("Year (e.g. 2026)") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = sheetUrl,
+                            onValueChange = { sheetUrl = it },
+                            label = { Text("Google Sheet URL (optional)") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 },
                 confirmButton = {
                     TextButton(onClick = {
                         if (label.isNotBlank()) {
-                            viewModel.insertYear(label)
+                            val sheetId = extractSheetId(sheetUrl)
+                            viewModel.insertYear(label, sheetId)
                             showAddDialog = false
                         }
                     }) {
@@ -106,20 +118,32 @@ fun YearListScreen(
 
         if (yearToEdit != null) {
             var label by remember { mutableStateOf(yearToEdit!!.label) }
+            var sheetUrl by remember { mutableStateOf(yearToEdit!!.sheetId?.let { "https://docs.google.com/spreadsheets/d/$it/edit" } ?: "") }
             AlertDialog(
                 onDismissRequest = { yearToEdit = null },
                 title = { Text("Edit Year") },
                 text = {
-                    OutlinedTextField(
-                        value = label,
-                        onValueChange = { label = it },
-                        label = { Text("Year") }
-                    )
+                    Column {
+                        OutlinedTextField(
+                            value = label,
+                            onValueChange = { label = it },
+                            label = { Text("Year") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = sheetUrl,
+                            onValueChange = { sheetUrl = it },
+                            label = { Text("Google Sheet URL (optional)") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 },
                 confirmButton = {
                     TextButton(onClick = {
                         if (label.isNotBlank()) {
-                            viewModel.updateYear(yearToEdit!!.copy(label = label))
+                            val sheetId = extractSheetId(sheetUrl)
+                            viewModel.updateYear(yearToEdit!!.copy(label = label, sheetId = sheetId))
                             yearToEdit = null
                         }
                     }) {
@@ -132,4 +156,10 @@ fun YearListScreen(
             )
         }
     }
+}
+
+fun extractSheetId(url: String): String? {
+    if (url.isBlank()) return null
+    if (!url.contains("/d/")) return url.trim() // User might have pasted just the ID
+    return url.substringAfter("/d/").substringBefore("/").takeIf { it.isNotBlank() }
 }

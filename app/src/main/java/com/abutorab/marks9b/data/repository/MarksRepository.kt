@@ -12,6 +12,7 @@ class MarksRepository(
     private val markDao: MarkDao
 ) {
     fun getAllYears(): Flow<List<YearEntity>> = yearDao.getAllYears()
+    fun getYearById(yearId: Int): Flow<YearEntity?> = yearDao.getYearById(yearId)
     suspend fun insertYear(year: YearEntity) = yearDao.insert(year)
     suspend fun updateYear(year: YearEntity) = yearDao.update(year)
     suspend fun deleteYear(year: YearEntity) = yearDao.delete(year)

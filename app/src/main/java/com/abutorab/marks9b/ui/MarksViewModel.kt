@@ -14,14 +14,15 @@ class MarksViewModel(
     private val repository: MarksRepository
 ) : AndroidViewModel(application) {
     fun getAllYears(): Flow<List<YearEntity>> = repository.getAllYears()
-    fun insertYear(label: String) = viewModelScope.launch { repository.insertYear(YearEntity(label = label)) }
+    fun getYearById(yearId: Int): Flow<YearEntity?> = repository.getYearById(yearId)
+    fun insertYear(label: String, sheetId: String?) = viewModelScope.launch { repository.insertYear(YearEntity(label = label, sheetId = sheetId)) }
     fun updateYear(year: YearEntity) = viewModelScope.launch { repository.updateYear(year) }
     fun deleteYear(year: YearEntity) = viewModelScope.launch { repository.deleteYear(year) }
 
     fun getTermsForYear(yearId: Int): Flow<List<TermEntity>> = repository.getTermsForYear(yearId)
     fun getTermById(termId: Int): Flow<TermEntity?> = repository.getTermById(termId)
-    fun insertTerm(yearId: Int, label: String, sheetId: String?) = viewModelScope.launch {
-        val termId = repository.insertTerm(TermEntity(yearId = yearId, label = label, sheetId = sheetId))
+    fun insertTerm(yearId: Int, label: String, examPeriod: String) = viewModelScope.launch {
+        val termId = repository.insertTerm(TermEntity(yearId = yearId, label = label, examPeriod = examPeriod))
         com.abutorab.marks9b.data.local.entity.SubjectCatalog.subjects.forEach { data ->
             repository.insertSubject(
                 SubjectEntity(

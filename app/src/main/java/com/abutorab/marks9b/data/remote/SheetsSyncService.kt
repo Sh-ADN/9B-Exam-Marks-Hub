@@ -18,7 +18,7 @@ object SheetsSyncService {
         val values: List<Int>
     )
 
-    suspend fun exportSubjectMarks(sheetId: String, tabName: String, entries: List<ExportEntry>): Result<Int> = withContext(Dispatchers.IO) {
+    suspend fun exportSubjectMarks(sheetId: String, tabName: String, startColumn: Int = 3, entries: List<ExportEntry>): Result<Int> = withContext(Dispatchers.IO) {
         try {
             val url = URL(ENDPOINT)
             val connection = url.openConnection() as HttpURLConnection
@@ -41,6 +41,7 @@ object SheetsSyncService {
             requestJson.put("secret", BuildConfig.SHEETS_SYNC_SECRET)
             requestJson.put("spreadsheetId", sheetId)
             requestJson.put("inputTabName", tabName)
+            requestJson.put("startColumn", startColumn)
             requestJson.put("entries", entriesArray)
 
             OutputStreamWriter(connection.outputStream, "UTF-8").use { writer ->

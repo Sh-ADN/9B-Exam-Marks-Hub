@@ -9,6 +9,9 @@ interface YearDao {
     @Query("SELECT * FROM years")
     fun getAllYears(): Flow<List<YearEntity>>
 
+    @Query("SELECT * FROM years WHERE id = :yearId")
+    fun getYearById(yearId: Int): Flow<YearEntity?>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(year: YearEntity)
 

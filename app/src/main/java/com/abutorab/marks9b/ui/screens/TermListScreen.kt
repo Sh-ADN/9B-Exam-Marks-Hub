@@ -79,7 +79,7 @@ fun TermListScreen(
 
         if (showAddDialog) {
             var label by remember { mutableStateOf("") }
-            var sheetUrl by remember { mutableStateOf("") }
+            var examPeriod by remember { mutableStateOf(com.abutorab.marks9b.data.local.entity.ExamPeriod.MID_TERM.name) }
             AlertDialog(
                 onDismissRequest = { showAddDialog = false },
                 title = { Text("Add Term") },
@@ -92,19 +92,26 @@ fun TermListScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
                         Spacer(Modifier.height(8.dp))
-                        OutlinedTextField(
-                            value = sheetUrl,
-                            onValueChange = { sheetUrl = it },
-                            label = { Text("Google Sheet URL (optional)") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                        Text("Exam Period", style = MaterialTheme.typography.labelMedium)
+                        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            RadioButton(
+                                selected = examPeriod == com.abutorab.marks9b.data.local.entity.ExamPeriod.MID_TERM.name,
+                                onClick = { examPeriod = com.abutorab.marks9b.data.local.entity.ExamPeriod.MID_TERM.name }
+                            )
+                            Text("Mid Term")
+                            Spacer(Modifier.width(16.dp))
+                            RadioButton(
+                                selected = examPeriod == com.abutorab.marks9b.data.local.entity.ExamPeriod.ANNUAL.name,
+                                onClick = { examPeriod = com.abutorab.marks9b.data.local.entity.ExamPeriod.ANNUAL.name }
+                            )
+                            Text("Annual")
+                        }
                     }
                 },
                 confirmButton = {
                     TextButton(onClick = {
                         if (label.isNotBlank()) {
-                            val sheetId = extractSheetId(sheetUrl)
-                            viewModel.insertTerm(yearId, label, sheetId)
+                            viewModel.insertTerm(yearId, label, examPeriod)
                             showAddDialog = false
                         }
                     }) {
@@ -119,7 +126,7 @@ fun TermListScreen(
 
         if (termToEdit != null) {
             var label by remember { mutableStateOf(termToEdit!!.label) }
-            var sheetUrl by remember { mutableStateOf(termToEdit!!.sheetId?.let { "https://docs.google.com/spreadsheets/d/$it/edit" } ?: "") }
+            var examPeriod by remember { mutableStateOf(termToEdit!!.examPeriod) }
             AlertDialog(
                 onDismissRequest = { termToEdit = null },
                 title = { Text("Edit Term") },
@@ -132,19 +139,26 @@ fun TermListScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
                         Spacer(Modifier.height(8.dp))
-                        OutlinedTextField(
-                            value = sheetUrl,
-                            onValueChange = { sheetUrl = it },
-                            label = { Text("Google Sheet URL (optional)") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                        Text("Exam Period", style = MaterialTheme.typography.labelMedium)
+                        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            RadioButton(
+                                selected = examPeriod == com.abutorab.marks9b.data.local.entity.ExamPeriod.MID_TERM.name,
+                                onClick = { examPeriod = com.abutorab.marks9b.data.local.entity.ExamPeriod.MID_TERM.name }
+                            )
+                            Text("Mid Term")
+                            Spacer(Modifier.width(16.dp))
+                            RadioButton(
+                                selected = examPeriod == com.abutorab.marks9b.data.local.entity.ExamPeriod.ANNUAL.name,
+                                onClick = { examPeriod = com.abutorab.marks9b.data.local.entity.ExamPeriod.ANNUAL.name }
+                            )
+                            Text("Annual")
+                        }
                     }
                 },
                 confirmButton = {
                     TextButton(onClick = {
                         if (label.isNotBlank()) {
-                            val sheetId = extractSheetId(sheetUrl)
-                            viewModel.updateTerm(termToEdit!!.copy(label = label, sheetId = sheetId))
+                            viewModel.updateTerm(termToEdit!!.copy(label = label, examPeriod = examPeriod))
                             termToEdit = null
                         }
                     }) {
@@ -157,10 +171,4 @@ fun TermListScreen(
             )
         }
     }
-}
-
-fun extractSheetId(url: String): String? {
-    if (url.isBlank()) return null
-    if (!url.contains("/d/")) return url.trim() // User might have pasted just the ID
-    return url.substringAfter("/d/").substringBefore("/").takeIf { it.isNotBlank() }
 }

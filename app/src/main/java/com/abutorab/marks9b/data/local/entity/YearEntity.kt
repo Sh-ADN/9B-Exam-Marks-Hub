@@ -6,5 +6,6 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "years")
 data class YearEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val label: String
+    val label: String,
+    val sheetId: String? = null
 )

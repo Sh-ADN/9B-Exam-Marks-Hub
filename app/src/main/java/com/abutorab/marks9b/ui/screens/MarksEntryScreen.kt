@@ -27,6 +27,9 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
     val currentTerm = term ?: return
     val yearId = currentTerm.yearId
 
+    val year by viewModel.getYearById(yearId).collectAsStateWithLifecycle(initialValue = null)
+    val currentYear = year ?: return
+
     val subjects by viewModel.getSubjectsForTerm(termId).collectAsStateWithLifecycle(initialValue = emptyList())
     val subject = subjects.find { it.id == subjectId } ?: return
     val allStudents by viewModel.getStudentsForYear(yearId).collectAsStateWithLifecycle(initialValue = emptyList())
@@ -58,7 +61,7 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 ),
                 actions = {
-                    val sheetId = currentTerm.sheetId
+                    val sheetId = currentYear.sheetId
                     if (isExporting) {
                         CircularProgressIndicator(modifier = Modifier.padding(16.dp).size(24.dp))
                     } else {
@@ -79,7 +82,18 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
                                             }
                                         }
                                         
-                                        val result = SheetsSyncService.exportSubjectMarks(sheetId, subject.sheetTabName, entries)
+                                        var componentCount = 0
+                                        if (subject.mcqMax != null) componentCount++
+                                        if (subject.writtenMax != null) componentCount++
+                                        if (subject.practicalMax != null) componentCount++
+                                        
+                                        val startColumn = if (currentTerm.examPeriod == com.abutorab.marks9b.data.local.entity.ExamPeriod.MID_TERM.name) {
+                                            3
+                                        } else {
+                                            3 + componentCount
+                                        }
+                                        
+                                        val result = SheetsSyncService.exportSubjectMarks(sheetId, subject.sheetTabName, startColumn, entries)
                                         isExporting = false
                                         if (result.isSuccess) {
                                             snackbarHostState.showSnackbar("Exported ${result.getOrNull()} students successfully")
@@ -100,9 +114,9 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
         }
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
-            if (currentTerm.sheetId == null) {
+            if (currentYear.sheetId == null) {
                 Text(
-                    text = "Link a Google Sheet to this term first (edit the term to add one).",
+                    text = "Link a Google Sheet to this year first (edit the year to add one).",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
