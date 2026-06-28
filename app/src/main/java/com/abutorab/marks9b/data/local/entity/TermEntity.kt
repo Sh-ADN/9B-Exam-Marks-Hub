@@ -27,3 +27,6 @@ data class TermEntity(
 enum class ExamPeriod {
     MID_TERM, ANNUAL
 }
+
+fun examPeriodLabel(examPeriod: String): String =
+    if (examPeriod == ExamPeriod.MID_TERM.name) "Mid Term" else "Annual"

@@ -10,9 +10,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -253,22 +256,54 @@ fun SubjectsTab(termId: Int, viewModel: MarksViewModel) {
     val optional = subjects.filter { it.applicabilityType == com.abutorab.marks9b.data.local.entity.ApplicabilityType.OPTIONAL_TYPE.name }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(contentPadding = PaddingValues(bottom = 80.dp)) {
-            if (compulsory.isNotEmpty()) {
-                item { SubjectSectionHeader("Compulsory") }
-                items(compulsory, key = { it.id }) { subject -> SubjectRow(subject) }
+        if (subjects.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Default.DateRange,
+                        contentDescription = "No subjects",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        text = "No subjects yet",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Subjects are added automatically when you create a term",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
             }
-            if (religion.isNotEmpty()) {
-                item { SubjectSectionHeader("Religion") }
-                items(religion, key = { it.id }) { subject -> SubjectRow(subject) }
-            }
-            if (groupElectives.isNotEmpty()) {
-                item { SubjectSectionHeader("Group Electives") }
-                items(groupElectives, key = { it.id }) { subject -> SubjectRow(subject) }
-            }
-            if (optional.isNotEmpty()) {
-                item { SubjectSectionHeader("Optional") }
-                items(optional, key = { it.id }) { subject -> SubjectRow(subject) }
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(bottom = 80.dp)
+            ) {
+                if (compulsory.isNotEmpty()) {
+                    item { SubjectSectionHeader("Compulsory") }
+                    items(compulsory, key = { it.id }) { subject -> SubjectListRow(subject) }
+                }
+                if (religion.isNotEmpty()) {
+                    item { SubjectSectionHeader("Religion") }
+                    items(religion, key = { it.id }) { subject -> SubjectListRow(subject) }
+                }
+                if (groupElectives.isNotEmpty()) {
+                    item { SubjectSectionHeader("Group Electives") }
+                    items(groupElectives, key = { it.id }) { subject -> SubjectListRow(subject) }
+                }
+                if (optional.isNotEmpty()) {
+                    item { SubjectSectionHeader("Optional") }
+                    items(optional, key = { it.id }) { subject -> SubjectListRow(subject) }
+                }
             }
         }
     }
@@ -285,27 +320,130 @@ fun SubjectSectionHeader(title: String) {
 }
 
 @Composable
-fun SubjectRow(subject: com.abutorab.marks9b.data.local.entity.SubjectEntity) {
-    ListItem(
-        headlineContent = { Text(subject.name) },
-        supportingContent = { Text("Full Marks: ${subject.fullMarks}") }
-    )
-    HorizontalDivider()
+fun SubjectListRow(subject: com.abutorab.marks9b.data.local.entity.SubjectEntity, onClick: (() -> Unit)? = null) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        modifier = Modifier
+            .fillMaxWidth()
+            .let { if (onClick != null) it.clickable { onClick() } else it }
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(MaterialTheme.colorScheme.primaryContainer, androidx.compose.foundation.shape.CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                val icon = when (subject.applicabilityType) {
+                    com.abutorab.marks9b.data.local.entity.ApplicabilityType.RELIGION.name -> Icons.Default.Star
+                    else -> Icons.Default.DateRange
+                }
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(
+                text = subject.name,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
+            Surface(
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+            ) {
+                Text(
+                    text = "Full Marks: ${subject.fullMarks}",
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+            if (onClick != null) {
+                Spacer(modifier = Modifier.width(8.dp))
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = "Go to marks",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
 }
 
 @Composable
 fun MarksTab(termId: Int, viewModel: MarksViewModel, onNavigateToMarksEntry: (Int, Int) -> Unit) {
     val subjects by viewModel.getSubjectsForTerm(termId).collectAsStateWithLifecycle(initialValue = emptyList())
 
-    LazyColumn(contentPadding = PaddingValues(bottom = 80.dp), modifier = Modifier.fillMaxSize()) {
-        items(subjects, key = { it.id }) { subject ->
-            ListItem(
-                headlineContent = { Text(subject.name) },
-                modifier = Modifier.clickable {
-                    onNavigateToMarksEntry(termId, subject.id)
+    val compulsory = subjects.filter { it.applicabilityType == com.abutorab.marks9b.data.local.entity.ApplicabilityType.ALL.name }
+    val religion = subjects.filter { it.applicabilityType == com.abutorab.marks9b.data.local.entity.ApplicabilityType.RELIGION.name }
+    val groupElectives = subjects.filter { it.applicabilityType == com.abutorab.marks9b.data.local.entity.ApplicabilityType.GROUP.name }
+    val optional = subjects.filter { it.applicabilityType == com.abutorab.marks9b.data.local.entity.ApplicabilityType.OPTIONAL_TYPE.name }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (subjects.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Default.DateRange,
+                        contentDescription = "No subjects",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        text = "No subjects yet",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Subjects are added automatically when you create a term",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
                 }
-            )
-            HorizontalDivider()
+            }
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(bottom = 80.dp)
+            ) {
+                if (compulsory.isNotEmpty()) {
+                    item { SubjectSectionHeader("Compulsory") }
+                    items(compulsory, key = { it.id }) { subject -> 
+                        SubjectListRow(subject, onClick = { onNavigateToMarksEntry(termId, subject.id) }) 
+                    }
+                }
+                if (religion.isNotEmpty()) {
+                    item { SubjectSectionHeader("Religion") }
+                    items(religion, key = { it.id }) { subject -> 
+                        SubjectListRow(subject, onClick = { onNavigateToMarksEntry(termId, subject.id) }) 
+                    }
+                }
+                if (groupElectives.isNotEmpty()) {
+                    item { SubjectSectionHeader("Group Electives") }
+                    items(groupElectives, key = { it.id }) { subject -> 
+                        SubjectListRow(subject, onClick = { onNavigateToMarksEntry(termId, subject.id) }) 
+                    }
+                }
+                if (optional.isNotEmpty()) {
+                    item { SubjectSectionHeader("Optional") }
+                    items(optional, key = { it.id }) { subject -> 
+                        SubjectListRow(subject, onClick = { onNavigateToMarksEntry(termId, subject.id) }) 
+                    }
+                }
+            }
         }
     }
 }

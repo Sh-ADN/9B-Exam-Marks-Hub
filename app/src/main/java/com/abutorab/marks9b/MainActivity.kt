@@ -43,6 +43,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Arrangement
+import com.abutorab.marks9b.data.local.entity.examPeriodLabel
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -217,7 +218,7 @@ fun HomeScreen(
       ) {
           if (activeTermContext != null) {
               val term = activeTermContext!!
-              val examPeriodLabel = if (term.examPeriod == "MID_TERM") "Mid Term" else "Annual"
+              val examPeriodLabel = examPeriodLabel(term.examPeriod)
               
               Card(
                   onClick = { onNavigateToTermDetail(term.termId) },

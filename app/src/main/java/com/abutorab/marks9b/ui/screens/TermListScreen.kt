@@ -9,12 +9,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.abutorab.marks9b.data.local.entity.TermEntity
+import com.abutorab.marks9b.data.local.entity.examPeriodLabel
 import com.abutorab.marks9b.ui.MarksViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
@@ -116,7 +117,7 @@ fun TermListScreen(
                                     contentAlignment = androidx.compose.ui.Alignment.Center
                                 ) {
                                     Icon(
-                                        imageVector = if (term.examPeriod == "MID_TERM") Icons.Default.Edit else Icons.Default.DateRange,
+                                        imageVector = if (term.examPeriod == "MID_TERM") Icons.Default.Place else Icons.Default.DateRange,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
@@ -129,7 +130,7 @@ fun TermListScreen(
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        text = if (term.examPeriod == "MID_TERM") "Mid Term" else "Annual",
+                                        text = examPeriodLabel(term.examPeriod),
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
