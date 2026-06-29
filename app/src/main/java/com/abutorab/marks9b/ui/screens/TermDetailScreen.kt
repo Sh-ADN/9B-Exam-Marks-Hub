@@ -10,8 +10,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
@@ -338,6 +341,9 @@ fun SubjectListRow(subject: com.abutorab.marks9b.data.local.entity.SubjectEntity
                 contentAlignment = Alignment.Center
             ) {
                 val icon = when (subject.applicabilityType) {
+                    com.abutorab.marks9b.data.local.entity.ApplicabilityType.ALL.name -> Icons.Default.CheckCircle
+                    com.abutorab.marks9b.data.local.entity.ApplicabilityType.GROUP.name -> Icons.Default.List
+                    com.abutorab.marks9b.data.local.entity.ApplicabilityType.OPTIONAL_TYPE.name -> Icons.Default.AddCircle
                     com.abutorab.marks9b.data.local.entity.ApplicabilityType.RELIGION.name -> Icons.Default.Star
                     else -> Icons.Default.DateRange
                 }
