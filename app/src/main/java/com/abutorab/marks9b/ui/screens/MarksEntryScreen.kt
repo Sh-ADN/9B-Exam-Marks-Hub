@@ -11,6 +11,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import com.abutorab.marks9b.data.local.entity.StudentEntity
 import com.abutorab.marks9b.data.local.entity.SubjectEntity
 import com.abutorab.marks9b.data.local.entity.MarkEntity
@@ -115,41 +120,75 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
             if (currentYear.sheetId == null) {
-                Text(
-                    text = "Link a Google Sheet to this year first (edit the year to add one).",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Link a Google Sheet to this year first (edit the year to add one).",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.padding(12.dp)
+                    )
+                }
             }
-            LazyColumn(
-                modifier = Modifier.fillMaxWidth().weight(1f),
-                contentPadding = PaddingValues(16.dp)
-            ) {
-            items(filteredStudents, key = { it.id }) { student ->
-                val mark = marks.find { it.studentId == student.id }
-                MarkEntryRow(
-                    student = student,
-                    subject = subject,
-                    existingMark = mark,
-                    onSaveMark = { mcq, written, practical ->
-                        viewModel.saveMark(
-                            MarkEntity(
-                                id = mark?.id ?: 0,
-                                studentId = student.id,
-                                subjectId = subjectId,
-                                mcqMarks = mcq,
-                                writtenMarks = written,
-                                practicalMarks = practical
-                            )
+            if (filteredStudents.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "No students",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Text(
+                            text = "No students yet",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "No students match this subject's applicability rules",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 8.dp)
                         )
                     }
-                )
-                HorizontalDivider()
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(filteredStudents, key = { it.id }) { student ->
+                        val mark = marks.find { it.studentId == student.id }
+                        MarkEntryRow(
+                            student = student,
+                            subject = subject,
+                            existingMark = mark,
+                            onSaveMark = { mcq, written, practical ->
+                                viewModel.saveMark(
+                                    MarkEntity(
+                                        id = mark?.id ?: 0,
+                                        studentId = student.id,
+                                        subjectId = subjectId,
+                                        mcqMarks = mcq,
+                                        writtenMarks = written,
+                                        practicalMarks = practical
+                                    )
+                                )
+                            }
+                        )
+                    }
+                }
             }
         }
     }
-}
 }
 
 @Composable
@@ -189,14 +228,31 @@ fun MarkEntryRow(
 
     val total = (mcqText.toIntOrNull() ?: 0) + (writtenText.toIntOrNull() ?: 0) + (practicalText.toIntOrNull() ?: 0)
 
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("${student.roll} - ${student.name}", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-            Text("Total: $total", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-        }
-        Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (subject.mcqMax != null) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = student.name.firstOrNull()?.toString()?.uppercase() ?: "?",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Text("${student.roll} - ${student.name}", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                Text("Total: $total", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.tertiary)
+            }
+            Spacer(Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (subject.mcqMax != null) {
                 OutlinedTextField(
                     value = mcqText,
                     onValueChange = { mcqText = it; trySave() },
@@ -230,5 +286,6 @@ fun MarkEntryRow(
                 )
             }
         }
+    }
     }
 }
