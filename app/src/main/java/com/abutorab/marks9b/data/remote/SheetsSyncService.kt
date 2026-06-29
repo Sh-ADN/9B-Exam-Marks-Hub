@@ -68,4 +68,63 @@ object SheetsSyncService {
             Result.failure(e)
         }
     }
+
+    data class ImportEntry(
+        val roll: Int,
+        val name: String,
+        val values: List<Int?>
+    )
+
+    suspend fun importSubjectMarks(sheetId: String, tabName: String, startColumn: Int = 3, componentCount: Int): Result<List<ImportEntry>> = withContext(Dispatchers.IO) {
+        try {
+            val url = URL(ENDPOINT)
+            val connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "POST"
+            connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+            connection.doOutput = true
+
+            val requestJson = JSONObject()
+            requestJson.put("secret", BuildConfig.SHEETS_SYNC_SECRET)
+            requestJson.put("action", "read")
+            requestJson.put("spreadsheetId", sheetId)
+            requestJson.put("inputTabName", tabName)
+            requestJson.put("startColumn", startColumn)
+            requestJson.put("componentCount", componentCount)
+
+            OutputStreamWriter(connection.outputStream, "UTF-8").use { writer ->
+                writer.write(requestJson.toString())
+                writer.flush()
+            }
+
+            val responseCode = connection.responseCode
+            if (responseCode == HttpURLConnection.HTTP_OK || responseCode == HttpURLConnection.HTTP_MOVED_TEMP || responseCode == HttpURLConnection.HTTP_MOVED_PERM) {
+                val inputStream = if (responseCode >= 400) connection.errorStream else connection.inputStream
+                val responseText = inputStream.bufferedReader().use { it.readText() }
+                val responseJson = JSONObject(responseText)
+
+                if (responseJson.optString("status") == "success") {
+                    val entriesArray = responseJson.optJSONArray("entries") ?: JSONArray()
+                    val importEntries = mutableListOf<ImportEntry>()
+                    for (i in 0 until entriesArray.length()) {
+                        val entryObj = entriesArray.getJSONObject(i)
+                        val roll = entryObj.optInt("roll")
+                        val name = entryObj.optString("name")
+                        val valuesArray = entryObj.optJSONArray("values") ?: JSONArray()
+                        val values = mutableListOf<Int?>()
+                        for (j in 0 until valuesArray.length()) {
+                            values.add(if (valuesArray.isNull(j)) null else valuesArray.optDouble(j).toInt())
+                        }
+                        importEntries.add(ImportEntry(roll, name, values))
+                    }
+                    Result.success(importEntries)
+                } else {
+                    Result.failure(Exception(responseJson.optString("message", "Unknown error from script")))
+                }
+            } else {
+                Result.failure(Exception("HTTP error code: $responseCode"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

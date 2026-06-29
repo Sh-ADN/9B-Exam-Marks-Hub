@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -55,6 +56,74 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     var isExporting by remember { mutableStateOf(false) }
+    var isImporting by remember { mutableStateOf(false) }
+    var hasAutoImported by remember(subjectId) { mutableStateOf(false) }
+
+    fun performImport(showFeedback: Boolean) {
+        val sheetId = currentYear.sheetId ?: return
+        isImporting = true
+        coroutineScope.launch {
+            val componentCount = listOf(subject.mcqMax, subject.writtenMax, subject.practicalMax).count { it != null }
+            val startColumn = if (currentTerm.examPeriod == com.abutorab.marks9b.data.local.entity.ExamPeriod.MID_TERM.name) {
+                3
+            } else {
+                3 + componentCount
+            }
+            val result = SheetsSyncService.importSubjectMarks(sheetId, subject.sheetTabName, startColumn, componentCount)
+            isImporting = false
+            if (result.isSuccess) {
+                var updatedCount = 0
+                result.getOrNull()?.forEach { entry ->
+                    val student = filteredStudents.find { it.roll == entry.roll }
+                    if (student != null) {
+                        val existingMark = marks.find { it.studentId == student.id }
+                        var newMcq = existingMark?.mcqMarks
+                        var newWritten = existingMark?.writtenMarks
+                        var newPractical = existingMark?.practicalMarks
+                        var changed = false
+                        var idx = 0
+                        if (subject.mcqMax != null) {
+                            entry.values.getOrNull(idx)?.let { newMcq = it; changed = true }
+                            idx++
+                        }
+                        if (subject.writtenMax != null) {
+                            entry.values.getOrNull(idx)?.let { newWritten = it; changed = true }
+                            idx++
+                        }
+                        if (subject.practicalMax != null) {
+                            entry.values.getOrNull(idx)?.let { newPractical = it; changed = true }
+                            idx++
+                        }
+                        if (changed) {
+                            viewModel.saveMark(
+                                MarkEntity(
+                                    id = existingMark?.id ?: 0,
+                                    studentId = student.id,
+                                    subjectId = subjectId,
+                                    mcqMarks = newMcq,
+                                    writtenMarks = newWritten,
+                                    practicalMarks = newPractical
+                                )
+                            )
+                            updatedCount++
+                        }
+                    }
+                }
+                if (showFeedback) {
+                    snackbarHostState.showSnackbar("Imported $updatedCount marks")
+                }
+            } else if (showFeedback) {
+                snackbarHostState.showSnackbar(result.exceptionOrNull()?.message ?: "Import failed")
+            }
+        }
+    }
+
+    LaunchedEffect(subjectId, allStudents) {
+        if (!hasAutoImported && allStudents.isNotEmpty()) {
+            hasAutoImported = true
+            performImport(showFeedback = false)
+        }
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -67,6 +136,16 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
                 ),
                 actions = {
                     val sheetId = currentYear.sheetId
+                    if (isImporting) {
+                        CircularProgressIndicator(modifier = Modifier.padding(16.dp).size(24.dp), strokeWidth = 2.dp)
+                    } else {
+                        IconButton(
+                            onClick = { performImport(showFeedback = true) },
+                            enabled = sheetId != null
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = "Import from Sheet")
+                        }
+                    }
                     if (isExporting) {
                         CircularProgressIndicator(modifier = Modifier.padding(16.dp).size(24.dp))
                     } else {
