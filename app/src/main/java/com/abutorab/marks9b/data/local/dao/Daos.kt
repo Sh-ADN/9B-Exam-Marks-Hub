@@ -75,6 +75,9 @@ interface MarkDao {
     @Query("SELECT * FROM marks WHERE subjectId = :subjectId")
     fun getMarksForSubject(subjectId: Int): Flow<List<MarkEntity>>
 
+    @Query("SELECT * FROM marks WHERE subjectId IN (SELECT id FROM subjects WHERE termId = :termId)")
+    fun getMarksForTerm(termId: Int): Flow<List<MarkEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertMark(mark: MarkEntity)
 }

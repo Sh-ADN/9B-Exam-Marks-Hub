@@ -34,6 +34,7 @@ class MarksRepository(
     suspend fun deleteSubject(subject: SubjectEntity) = subjectDao.delete(subject)
 
     fun getMarksForSubject(subjectId: Int): Flow<List<MarkEntity>> = markDao.getMarksForSubject(subjectId)
+    fun getMarksForTerm(termId: Int): Flow<List<MarkEntity>> = markDao.getMarksForTerm(termId)
     suspend fun saveMark(mark: MarkEntity) {
         markDao.upsertMark(mark)
     }

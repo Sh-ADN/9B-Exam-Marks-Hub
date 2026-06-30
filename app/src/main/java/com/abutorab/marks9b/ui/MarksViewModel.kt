@@ -91,6 +91,7 @@ class MarksViewModel(
     fun deleteSubject(subject: SubjectEntity) = viewModelScope.launch { repository.deleteSubject(subject) }
 
     fun getMarksForSubject(subjectId: Int): Flow<List<MarkEntity>> = repository.getMarksForSubject(subjectId)
+    fun getMarksForTerm(termId: Int): Flow<List<MarkEntity>> = repository.getMarksForTerm(termId)
     fun saveMark(mark: MarkEntity) = viewModelScope.launch { 
         repository.saveMark(mark) 
     }
