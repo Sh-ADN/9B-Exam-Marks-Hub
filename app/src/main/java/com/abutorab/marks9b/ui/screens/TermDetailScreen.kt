@@ -38,7 +38,8 @@ import kotlinx.coroutines.launch
 fun TermDetailScreen(
     termId: Int,
     viewModel: MarksViewModel,
-    onNavigateToMarksEntry: (Int, Int) -> Unit
+    onNavigateToMarksEntry: (Int, Int) -> Unit,
+    onNavigateToTabulation: (Int) -> Unit
 ) {
     val context = LocalContext.current
     LaunchedEffect(termId) {
@@ -71,6 +72,9 @@ fun TermDetailScreen(
                         titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                     ),
                     actions = {
+                        IconButton(onClick = { onNavigateToTabulation(termId) }) {
+                            Icon(Icons.Default.DateRange, contentDescription = "View Tabulation")
+                        }
                         if (selectedTabIndex == 0) {
                             var showMenu by remember { mutableStateOf(false) }
                             IconButton(onClick = { showMenu = true }) {

@@ -54,6 +54,7 @@ import com.abutorab.marks9b.data.local.MarksDatabase
 import com.abutorab.marks9b.data.repository.MarksRepository
 import com.abutorab.marks9b.ui.MarksViewModel
 import com.abutorab.marks9b.ui.MarksViewModelFactory
+import com.abutorab.marks9b.ui.screens.TabulationScreen
 import com.abutorab.marks9b.ui.screens.TermDetailScreen
 import com.abutorab.marks9b.ui.screens.TermListScreen
 import com.abutorab.marks9b.ui.screens.YearListScreen
@@ -112,8 +113,16 @@ class MainActivity : ComponentActivity() {
                 viewModel = viewModel,
                 onNavigateToMarksEntry = { term, subject ->
                     navController.navigate("marksEntry/$term/$subject")
-                }
+                },
+                onNavigateToTabulation = { tId -> navController.navigate("tabulation/$tId") }
             )
+          }
+          composable(
+            "tabulation/{termId}",
+            arguments = listOf(navArgument("termId") { type = NavType.IntType })
+          ) { backStackEntry ->
+            val termId = backStackEntry.arguments?.getInt("termId") ?: 0
+            TabulationScreen(termId = termId, viewModel = viewModel, onBack = { navController.popBackStack() })
           }
           composable(
             "marksEntry/{termId}/{subjectId}",
