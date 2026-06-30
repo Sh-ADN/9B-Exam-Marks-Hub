@@ -110,7 +110,7 @@ fun TabulationScreen(termId: Int, viewModel: MarksViewModel, onBack: () -> Unit)
                 ) {
                     HeaderCell("Roll", 44.dp)
                     HeaderCell("Name", 120.dp)
-                    Row(modifier = Modifier.horizontalScroll(horizontalScrollState)) {
+                    Row(modifier = Modifier.weight(1f).horizontalScroll(horizontalScrollState)) {
                         columnSlots.forEach { HeaderCell(it.label, 96.dp) }
                     }
                     HeaderCell("Total", 64.dp)
@@ -127,7 +127,7 @@ fun TabulationScreen(termId: Int, viewModel: MarksViewModel, onBack: () -> Unit)
                         ) {
                             DataCell(result.student.roll.toString(), 44.dp)
                             DataCell(result.student.name, 120.dp, alignStart = true)
-                            Row(modifier = Modifier.horizontalScroll(horizontalScrollState)) {
+                            Row(modifier = Modifier.weight(1f).horizontalScroll(horizontalScrollState)) {
                                 columnSlots.forEach { slot ->
                                     val sr = result.subjectResults.find { it.subject.sheetRole == slot.sheetRole }
                                     val text = if (sr == null || sr.total == 0) "-" else "${sr.total}"
