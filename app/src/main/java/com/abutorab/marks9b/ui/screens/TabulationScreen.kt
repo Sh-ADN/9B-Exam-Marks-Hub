@@ -1,6 +1,7 @@
 package com.abutorab.marks9b.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -43,7 +44,7 @@ private fun slotOrder(role: String): Int = when (role) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TabulationScreen(termId: Int, viewModel: MarksViewModel, onBack: () -> Unit) {
+fun TabulationScreen(termId: Int, viewModel: MarksViewModel, onNavigateToMarksheet: (Int) -> Unit, onBack: () -> Unit) {
     val term by viewModel.getTermById(termId).collectAsStateWithLifecycle(initialValue = null)
     val currentTerm = term ?: return
     val students by viewModel.getStudentsForYear(currentTerm.yearId).collectAsStateWithLifecycle(initialValue = emptyList())
@@ -122,7 +123,7 @@ fun TabulationScreen(termId: Int, viewModel: MarksViewModel, onBack: () -> Unit)
                 LazyColumn(modifier = Modifier.weight(1f)) {
                     items(results, key = { it.student.id }) { result ->
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                            modifier = Modifier.fillMaxWidth().clickable { onNavigateToMarksheet(result.student.id) }.padding(vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             DataCell(result.student.roll.toString(), 44.dp)

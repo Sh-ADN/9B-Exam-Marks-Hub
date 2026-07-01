@@ -55,6 +55,7 @@ import com.abutorab.marks9b.data.repository.MarksRepository
 import com.abutorab.marks9b.ui.MarksViewModel
 import com.abutorab.marks9b.ui.MarksViewModelFactory
 import com.abutorab.marks9b.ui.screens.TabulationScreen
+import com.abutorab.marks9b.ui.screens.MarksheetScreen
 import com.abutorab.marks9b.ui.screens.TermDetailScreen
 import com.abutorab.marks9b.ui.screens.TermListScreen
 import com.abutorab.marks9b.ui.screens.YearListScreen
@@ -122,7 +123,12 @@ class MainActivity : ComponentActivity() {
             arguments = listOf(navArgument("termId") { type = NavType.IntType })
           ) { backStackEntry ->
             val termId = backStackEntry.arguments?.getInt("termId") ?: 0
-            TabulationScreen(termId = termId, viewModel = viewModel, onBack = { navController.popBackStack() })
+            TabulationScreen(
+                termId = termId,
+                viewModel = viewModel,
+                onNavigateToMarksheet = { sId -> navController.navigate("marksheet/$termId/$sId") },
+                onBack = { navController.popBackStack() }
+            )
           }
           composable(
             "marksEntry/{termId}/{subjectId}",
@@ -134,6 +140,17 @@ class MainActivity : ComponentActivity() {
             val termId = backStackEntry.arguments?.getInt("termId") ?: 0
             val subjectId = backStackEntry.arguments?.getInt("subjectId") ?: 0
             MarksEntryScreen(termId = termId, subjectId = subjectId, viewModel = viewModel)
+          }
+          composable(
+            "marksheet/{termId}/{studentId}",
+            arguments = listOf(
+                navArgument("termId") { type = NavType.IntType },
+                navArgument("studentId") { type = NavType.IntType }
+            )
+          ) { backStackEntry ->
+            val termId = backStackEntry.arguments?.getInt("termId") ?: 0
+            val studentId = backStackEntry.arguments?.getInt("studentId") ?: 0
+            MarksheetScreen(termId = termId, studentId = studentId, viewModel = viewModel, onBack = { navController.popBackStack() })
           }
         }
       }
