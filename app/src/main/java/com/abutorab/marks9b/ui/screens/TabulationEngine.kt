@@ -11,6 +11,9 @@ import kotlin.math.round
 
 data class SubjectResult(
     val subject: SubjectEntity,
+    val mcqMarks: Int?,
+    val writtenMarks: Int?,
+    val practicalMarks: Int?,
     val total: Int,
     val letterGrade: String,
     val gradePoint: Double
@@ -128,7 +131,7 @@ object TabulationEngine {
                     failedCount++
                 }
 
-                subjectResults.add(SubjectResult(subject, total, lg, gp))
+                subjectResults.add(SubjectResult(subject, mark?.mcqMarks, mark?.writtenMarks, mark?.practicalMarks, total, lg, gp))
 
                 when (sheetRole) {
                     SheetRole.BANGLA1 -> bangla1Total = total
@@ -181,7 +184,7 @@ object TabulationEngine {
                     failedCount = failedCount,
                     gpa = gpa,
                     letterGrade = overallLg,
-                    position = null // Position will be assigned after sorting
+                    position = null
                 )
             )
         }

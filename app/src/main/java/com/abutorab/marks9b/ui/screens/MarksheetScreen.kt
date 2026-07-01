@@ -103,6 +103,11 @@ fun MarksheetScreen(termId: Int, studentId: Int, viewModel: MarksViewModel, onBa
                         Column(modifier = Modifier.weight(1f)) {
                             Text(sr.subject.name, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                             Text("Full Marks: ${sr.subject.fullMarks}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 4.dp)) {
+                                sr.mcqMarks?.let { ComponentLabel("MCQ", it) }
+                                sr.writtenMarks?.let { ComponentLabel("CQ", it) }
+                                sr.practicalMarks?.let { ComponentLabel("Prac", it) }
+                            }
                         }
                         Column(horizontalAlignment = Alignment.End) {
                             Text(
@@ -128,4 +133,9 @@ private fun SummaryStat(label: String, value: String, valueColor: Color = Materi
         Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = valueColor)
         Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+}
+
+@Composable
+private fun ComponentLabel(label: String, value: Int) {
+    Text("$label: $value", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }

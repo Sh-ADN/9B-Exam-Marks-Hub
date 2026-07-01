@@ -24,7 +24,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.abutorab.marks9b.data.local.entity.SheetRole
 import com.abutorab.marks9b.ui.MarksViewModel
 
-private data class ColumnSlot(val sheetRole: String, val label: String)
+private data class SubColumn(val type: String, val width: Dp)
+private data class ColumnSlot(val sheetRole: String, val label: String, val subColumns: List<SubColumn>)
 
 private fun slotOrder(role: String): Int = when (role) {
     SheetRole.BANGLA1.name -> 0
@@ -60,9 +61,17 @@ fun TabulationScreen(termId: Int, viewModel: MarksViewModel, onNavigateToMarkshe
             .filterKeys { it != SheetRole.NONE.name }
             .toList()
             .sortedBy { slotOrder(it.first) }
-            .map { (role, subjectsInRole) -> ColumnSlot(role, subjectsInRole.joinToString(" / ") { it.name }) }
+            .map { (role, subjectsInRole) ->
+                val subCols = mutableListOf<SubColumn>()
+                if (subjectsInRole.any { it.mcqMax != null }) subCols.add(SubColumn("MCQ", 40.dp))
+                if (subjectsInRole.any { it.writtenMax != null }) subCols.add(SubColumn("CQ", 40.dp))
+                if (subjectsInRole.any { it.practicalMax != null }) subCols.add(SubColumn("Prac", 40.dp))
+                subCols.add(SubColumn("Total", 48.dp))
+                ColumnSlot(role, subjectsInRole.joinToString(" / ") { it.name }, subCols)
+            }
     }
 
+    val summaryColumns = remember { listOf(SubColumn("Total", 64.dp), SubColumn("GPA", 56.dp), SubColumn("Grade", 56.dp), SubColumn("Rank", 48.dp)) }
     val horizontalScrollState = rememberScrollState()
 
     Scaffold(
@@ -106,24 +115,49 @@ fun TabulationScreen(termId: Int, viewModel: MarksViewModel, onNavigateToMarkshe
         } else {
             Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.Top
                 ) {
-                    HeaderCell("Roll", 44.dp)
-                    HeaderCell("Name", 120.dp)
+                    HeaderBlock(topLabel = null, width = 44.dp) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("Roll", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    HeaderBlock(topLabel = null, width = 120.dp) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
+                            Text("Name", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 4.dp))
+                        }
+                    }
                     Row(modifier = Modifier.weight(1f).horizontalScroll(horizontalScrollState)) {
-                        columnSlots.forEach { HeaderCell(it.label, 96.dp) }
-                        HeaderCell("Total", 64.dp)
-                        HeaderCell("GPA", 56.dp)
-                        HeaderCell("Grade", 56.dp)
-                        HeaderCell("Rank", 48.dp)
+                        columnSlots.forEach { slot ->
+                            val slotWidth = slot.subColumns.fold(0.dp) { acc, sc -> acc + sc.width }
+                            HeaderBlock(topLabel = slot.label, width = slotWidth) {
+                                Row(Modifier.fillMaxSize()) {
+                                    slot.subColumns.forEach { sc ->
+                                        Box(Modifier.width(sc.width).fillMaxHeight(), contentAlignment = Alignment.Center) {
+                                            Text(sc.type, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Normal)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        summaryColumns.forEach { sc ->
+                            HeaderBlock(topLabel = null, width = sc.width) {
+                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Text(sc.type, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                        }
                     }
                 }
                 HorizontalDivider()
                 LazyColumn(modifier = Modifier.weight(1f)) {
                     items(results, key = { it.student.id }) { result ->
                         Row(
-                            modifier = Modifier.fillMaxWidth().clickable { onNavigateToMarksheet(result.student.id) }.padding(vertical = 10.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onNavigateToMarksheet(result.student.id) }
+                                .padding(vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             DataCell(result.student.roll.toString(), 44.dp)
@@ -131,9 +165,17 @@ fun TabulationScreen(termId: Int, viewModel: MarksViewModel, onNavigateToMarkshe
                             Row(modifier = Modifier.weight(1f).horizontalScroll(horizontalScrollState)) {
                                 columnSlots.forEach { slot ->
                                     val sr = result.subjectResults.find { it.subject.sheetRole == slot.sheetRole }
-                                    val text = if (sr == null || sr.total == 0) "-" else "${sr.total}"
-                                    val color = if (sr?.letterGrade == "F") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-                                    DataCell(text, 96.dp, color = color)
+                                    val cellColor = if (sr?.letterGrade == "F") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                                    slot.subColumns.forEach { sc ->
+                                        val text = when (sc.type) {
+                                            "MCQ" -> sr?.mcqMarks?.toString() ?: "-"
+                                            "CQ" -> sr?.writtenMarks?.toString() ?: "-"
+                                            "Prac" -> sr?.practicalMarks?.toString() ?: "-"
+                                            else -> if (sr == null || sr.total == 0) "-" else "${sr.total}"
+                                        }
+                                        val weight = if (sc.type == "Total") FontWeight.Bold else FontWeight.Normal
+                                        DataCell(text, sc.width, color = cellColor, fontWeight = weight)
+                                    }
                                 }
                                 DataCell(result.grandTotal.toString(), 64.dp, fontWeight = FontWeight.Bold)
                                 DataCell(result.gpa?.let { "%.2f".format(it) } ?: "-", 56.dp, color = MaterialTheme.colorScheme.tertiary)
@@ -155,15 +197,30 @@ fun TabulationScreen(termId: Int, viewModel: MarksViewModel, onNavigateToMarkshe
 }
 
 @Composable
-private fun HeaderCell(text: String, width: Dp) {
-    Box(modifier = Modifier.width(width).padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
-        Text(text, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, textAlign = TextAlign.Center)
+private fun HeaderBlock(topLabel: String?, width: Dp, bottomContent: @Composable () -> Unit) {
+    Column(modifier = Modifier.width(width)) {
+        Box(modifier = Modifier.fillMaxWidth().height(24.dp).padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
+            if (topLabel != null) {
+                Text(
+                    topLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+        Box(modifier = Modifier.fillMaxWidth().height(28.dp)) {
+            bottomContent()
+        }
     }
 }
 
 @Composable
 private fun DataCell(text: String, width: Dp, alignStart: Boolean = false, color: Color = MaterialTheme.colorScheme.onSurface, fontWeight: FontWeight = FontWeight.Normal) {
     Box(modifier = Modifier.width(width).padding(horizontal = 4.dp), contentAlignment = if (alignStart) Alignment.CenterStart else Alignment.Center) {
-        Text(text, style = MaterialTheme.typography.bodyMedium, color = color, fontWeight = fontWeight, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = if (alignStart) TextAlign.Start else TextAlign.Center)
+        Text(text, style = MaterialTheme.typography.bodySmall, color = color, fontWeight = fontWeight, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = if (alignStart) TextAlign.Start else TextAlign.Center)
     }
 }
