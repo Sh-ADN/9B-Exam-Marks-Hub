@@ -31,6 +31,10 @@ fun MarksheetScreen(termId: Int, studentId: Int, viewModel: MarksViewModel, onBa
     }
     val result = allResults.find { it.student.id == studentId } ?: return
 
+    val orderedSubjectResults = remember(result) {
+        result.subjectResults.sortedBy { TabulationDisplay.canonicalOrder(it.subject.sheetRole, it.subject.applicabilityValue) }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -71,7 +75,7 @@ fun MarksheetScreen(termId: Int, studentId: Int, viewModel: MarksViewModel, onBa
                             SummaryStat("GPA", result.gpa?.let { "%.2f".format(it) } ?: "-")
                             SummaryStat(
                                 "Grade",
-                                result.letterGrade.ifEmpty { "-"},
+                                result.letterGrade.ifEmpty { "-" },
                                 valueColor = if (result.letterGrade == "F") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary
                             )
                             SummaryStat("Rank", result.position?.toString() ?: "-")
@@ -79,7 +83,7 @@ fun MarksheetScreen(termId: Int, studentId: Int, viewModel: MarksViewModel, onBa
                     }
                 }
             }
-            items(result.subjectResults, key = { it.subject.id }) { sr ->
+            items(orderedSubjectResults, key = { it.subject.id }) { sr ->
                 val isFailed = sr.letterGrade == "F"
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
@@ -101,13 +105,15 @@ fun MarksheetScreen(termId: Int, studentId: Int, viewModel: MarksViewModel, onBa
                         }
                         Spacer(modifier = Modifier.width(16.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(sr.subject.name, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                            Text(TabulationDisplay.bengaliSubjectName(sr.subject), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                             Text("Full Marks: ${sr.subject.fullMarks}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 4.dp)) {
-                                sr.mcqMarks?.let { ComponentLabel("MCQ", it) }
-                                sr.writtenMarks?.let { ComponentLabel("CQ", it) }
-                                sr.practicalMarks?.let { ComponentLabel("Prac", it) }
-                            }
+                            Text(
+                                TabulationDisplay.formatBreakdown(sr.mcqMarks, sr.writtenMarks, sr.practicalMarks, sr.total),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
                         }
                         Column(horizontalAlignment = Alignment.End) {
                             Text(
@@ -133,9 +139,4 @@ private fun SummaryStat(label: String, value: String, valueColor: Color = Materi
         Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = valueColor)
         Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
-}
-
-@Composable
-private fun ComponentLabel(label: String, value: Int) {
-    Text("$label: $value", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
