@@ -124,7 +124,7 @@ object TabulationEngine {
                 val lg = letterGrade(total, subject.fullMarks, sheetRole)
                 val gp = gradePointFromLetter(lg)
 
-                if (lg == "F") {
+                if (lg == "F" && sheetRole != SheetRole.OPTIONAL) {
                     failedCount++
                 }
 

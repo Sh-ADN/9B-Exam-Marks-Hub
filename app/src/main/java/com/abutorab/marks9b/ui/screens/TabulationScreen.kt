@@ -112,11 +112,11 @@ fun TabulationScreen(termId: Int, viewModel: MarksViewModel, onBack: () -> Unit)
                     HeaderCell("Name", 120.dp)
                     Row(modifier = Modifier.weight(1f).horizontalScroll(horizontalScrollState)) {
                         columnSlots.forEach { HeaderCell(it.label, 96.dp) }
+                        HeaderCell("Total", 64.dp)
+                        HeaderCell("GPA", 56.dp)
+                        HeaderCell("Grade", 56.dp)
+                        HeaderCell("Rank", 48.dp)
                     }
-                    HeaderCell("Total", 64.dp)
-                    HeaderCell("GPA", 56.dp)
-                    HeaderCell("Grade", 56.dp)
-                    HeaderCell("Rank", 48.dp)
                 }
                 HorizontalDivider()
                 LazyColumn(modifier = Modifier.weight(1f)) {
@@ -134,16 +134,16 @@ fun TabulationScreen(termId: Int, viewModel: MarksViewModel, onBack: () -> Unit)
                                     val color = if (sr?.letterGrade == "F") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                                     DataCell(text, 96.dp, color = color)
                                 }
+                                DataCell(result.grandTotal.toString(), 64.dp, fontWeight = FontWeight.Bold)
+                                DataCell(result.gpa?.let { "%.2f".format(it) } ?: "-", 56.dp, color = MaterialTheme.colorScheme.tertiary)
+                                DataCell(
+                                    result.letterGrade.ifEmpty { "-" },
+                                    56.dp,
+                                    color = if (result.letterGrade == "F") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                DataCell(result.position?.toString() ?: "-", 48.dp)
                             }
-                            DataCell(result.grandTotal.toString(), 64.dp, fontWeight = FontWeight.Bold)
-                            DataCell(result.gpa?.let { "%.2f".format(it) } ?: "-", 56.dp, color = MaterialTheme.colorScheme.tertiary)
-                            DataCell(
-                                result.letterGrade.ifEmpty { "-" },
-                                56.dp,
-                                color = if (result.letterGrade == "F") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                                fontWeight = FontWeight.Bold
-                            )
-                            DataCell(result.position?.toString() ?: "-", 48.dp)
                         }
                         HorizontalDivider()
                     }
