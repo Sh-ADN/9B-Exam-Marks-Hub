@@ -37,16 +37,22 @@ fun MarksheetScreen(termId: Int, studentId: Int, viewModel: MarksViewModel, onBa
         val nonReligionSubjects = subjects.filter { it.sheetRole != SheetRole.RELIGION.name }
         val rowSubjects = (religionRepresentative?.let { listOf(it) } ?: emptyList()) + nonReligionSubjects
 
-        rowSubjects
-            .sortedBy { TabulationDisplay.marksheetSubjectOrder(it) }
-            .map { subject ->
-                val sr = if (subject.sheetRole == SheetRole.RELIGION.name) {
-                    result.subjectResults.find { it.subject.sheetRole == SheetRole.RELIGION.name }
-                } else {
-                    result.subjectResults.find { it.subject.id == subject.id }
-                }
-                MarksheetRowSpec(TabulationDisplay.bengaliSubjectName(subject), sr)
+        val realRows: List<Pair<Int, MarksheetRowSpec>> = rowSubjects.map { subject ->
+            val sr = if (subject.sheetRole == SheetRole.RELIGION.name) {
+                result.subjectResults.find { it.subject.sheetRole == SheetRole.RELIGION.name }
+            } else {
+                result.subjectResults.find { it.subject.id == subject.id }
             }
+            TabulationDisplay.marksheetSubjectOrder(subject) to MarksheetRowSpec(TabulationDisplay.bengaliSubjectName(subject), sr)
+        }
+
+        val placeholderRows: List<Pair<Int, MarksheetRowSpec>> = listOf(
+            7 to MarksheetRowSpec("শরীর চর্চা ও চারুকারু", null),
+            13 to MarksheetRowSpec("কম্পিউটার", null),
+            22 to MarksheetRowSpec("কর্ম ও জীবন মুখী শিক্ষা", null)
+        )
+
+        (realRows + placeholderRows).sortedBy { it.first }.map { it.second }
     }
 
     Scaffold(

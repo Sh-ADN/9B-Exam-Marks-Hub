@@ -100,19 +100,19 @@ object TabulationDisplay {
         "Hindu Religion and Moral Education",
         "Buddhist Religion and Moral Education" -> 5
         "Agriculture Studies" -> 6
-        "General Science" -> 7
-        "Bangladesh & Global Studies" -> 8
-        "History" -> 9
-        "Geography" -> 10
-        "Civics" -> 11
-        "Finance" -> 12
-        "Accounting" -> 13
-        "B. Entrepreneurship" -> 14
-        "Physics" -> 15
-        "Chemistry" -> 16
-        "Biology" -> 17
-        "Higher Mathematics" -> 18
-        "Information & Communication Technology" -> 19
+        "General Science" -> 8
+        "Bangladesh & Global Studies" -> 9
+        "History" -> 10
+        "Geography" -> 11
+        "Civics" -> 12
+        "Finance" -> 14
+        "Accounting" -> 15
+        "B. Entrepreneurship" -> 16
+        "Physics" -> 17
+        "Chemistry" -> 18
+        "Biology" -> 19
+        "Higher Mathematics" -> 20
+        "Information & Communication Technology" -> 21
         else -> 99
     }
 }
