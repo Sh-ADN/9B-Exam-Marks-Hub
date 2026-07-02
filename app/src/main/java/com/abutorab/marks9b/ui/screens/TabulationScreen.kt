@@ -22,13 +22,18 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.abutorab.marks9b.data.local.entity.SheetRole
+import com.abutorab.marks9b.data.local.entity.SubjectEntity
 import com.abutorab.marks9b.ui.MarksViewModel
 
 private data class ColumnSlot(val sheetRole: String, val applicabilityValue: String?, val label: String, val width: Dp)
 
-private fun columnWidthFor(sheetRole: String): Dp = when (sheetRole) {
-    SheetRole.ELECTIVE1.name, SheetRole.ELECTIVE2.name, SheetRole.ELECTIVE3.name, SheetRole.OPTIONAL.name -> 132.dp
-    else -> 96.dp
+private fun columnWidthFor(subjectsInGroup: List<SubjectEntity>): Dp {
+    val maxParts = subjectsInGroup.maxOf { s -> listOfNotNull(s.mcqMax, s.writtenMax, s.practicalMax).size }
+    return when {
+        maxParts <= 1 -> 76.dp
+        maxParts == 2 -> 112.dp
+        else -> 152.dp
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,7 +58,7 @@ fun TabulationScreen(termId: Int, viewModel: MarksViewModel, onNavigateToMarkshe
                     sheetRole = first.sheetRole,
                     applicabilityValue = first.applicabilityValue,
                     label = TabulationDisplay.bengaliLabel(first.sheetRole, first.applicabilityValue),
-                    width = columnWidthFor(first.sheetRole)
+                    width = columnWidthFor(subjectsInGroup)
                 )
             }
             .sortedBy { TabulationDisplay.canonicalOrder(it.sheetRole, it.applicabilityValue) }
@@ -103,7 +108,7 @@ fun TabulationScreen(termId: Int, viewModel: MarksViewModel, onNavigateToMarkshe
         } else {
             Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(vertical = 10.dp),
                     verticalAlignment = Alignment.Top
                 ) {
                     HeaderCell("Roll", 44.dp)
@@ -120,7 +125,7 @@ fun TabulationScreen(termId: Int, viewModel: MarksViewModel, onNavigateToMarkshe
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { onNavigateToMarksheet(result.student.id) }
-                                .padding(vertical = 10.dp),
+                                .padding(vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             DataCell(result.student.roll.toString(), 44.dp)
@@ -159,7 +164,7 @@ private fun HeaderCell(text: String, width: Dp, alignStart: Boolean = false) {
     Box(modifier = Modifier.width(width).padding(horizontal = 3.dp), contentAlignment = if (alignStart) Alignment.CenterStart else Alignment.Center) {
         Text(
             text,
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.primary,
             maxLines = 2,
@@ -174,7 +179,7 @@ private fun DataCell(text: String, width: Dp, alignStart: Boolean = false, color
     Box(modifier = Modifier.width(width).padding(horizontal = 4.dp), contentAlignment = if (alignStart) Alignment.CenterStart else Alignment.Center) {
         Text(
             text,
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.bodyMedium,
             color = color,
             fontWeight = fontWeight,
             maxLines = 1,

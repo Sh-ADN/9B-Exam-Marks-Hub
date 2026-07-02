@@ -1,10 +1,7 @@
 package com.abutorab.marks9b.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
@@ -13,6 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.abutorab.marks9b.ui.MarksViewModel
@@ -83,48 +81,50 @@ fun MarksheetScreen(termId: Int, studentId: Int, viewModel: MarksViewModel, onBa
                     }
                 }
             }
-            items(orderedSubjectResults, key = { it.subject.id }) { sr ->
-                val isFailed = sr.letterGrade == "F"
+            item {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .background(if (isFailed) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                sr.letterGrade.ifEmpty { "-" },
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isFailed) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer
-                            )
+                    Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
+                            LedgerHeaderCell("বিষয়", Modifier.weight(1f), TextAlign.Start)
+                            LedgerHeaderCell("MCQ", Modifier.width(42.dp))
+                            LedgerHeaderCell("CQ", Modifier.width(42.dp))
+                            LedgerHeaderCell("Prac", Modifier.width(42.dp))
+                            LedgerHeaderCell("মোট", Modifier.width(46.dp))
+                            LedgerHeaderCell("গ্রেড", Modifier.width(44.dp))
                         }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(TabulationDisplay.bengaliSubjectName(sr.subject), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                            Text("Full Marks: ${sr.subject.fullMarks}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(
-                                TabulationDisplay.formatBreakdown(sr.mcqMarks, sr.writtenMarks, sr.practicalMarks, sr.total),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = 2.dp)
-                            )
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text(
-                                if (sr.total == 0) "-" else "${sr.total}",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isFailed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-                            )
-                            if (sr.letterGrade.isNotEmpty()) {
-                                Text("GP ${sr.gradePoint}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary)
+                        HorizontalDivider()
+                        orderedSubjectResults.forEachIndexed { index, sr ->
+                            val isFailed = sr.letterGrade == "F"
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    TabulationDisplay.bengaliSubjectName(sr.subject),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                LedgerValueCell(sr.mcqMarks?.toString() ?: "-", Modifier.width(42.dp))
+                                LedgerValueCell(sr.writtenMarks?.toString() ?: "-", Modifier.width(42.dp))
+                                LedgerValueCell(sr.practicalMarks?.toString() ?: "-", Modifier.width(42.dp))
+                                LedgerValueCell(
+                                    if (sr.total == 0) "-" else "${sr.total}",
+                                    Modifier.width(46.dp),
+                                    color = if (isFailed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                                    bold = true
+                                )
+                                LedgerValueCell(
+                                    sr.letterGrade.ifEmpty { "-" },
+                                    Modifier.width(44.dp),
+                                    color = if (isFailed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary,
+                                    bold = true
+                                )
                             }
+                            if (index < orderedSubjectResults.lastIndex) HorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp))
                         }
                     }
                 }
@@ -139,4 +139,28 @@ private fun SummaryStat(label: String, value: String, valueColor: Color = Materi
         Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = valueColor)
         Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+}
+
+@Composable
+private fun LedgerHeaderCell(text: String, modifier: Modifier = Modifier, align: TextAlign = TextAlign.Center) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.primary,
+        textAlign = align,
+        modifier = modifier
+    )
+}
+
+@Composable
+private fun LedgerValueCell(text: String, modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.onSurface, bold: Boolean = false) {
+    Text(
+        text,
+        style = MaterialTheme.typography.bodyMedium,
+        fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
+        color = color,
+        textAlign = TextAlign.Center,
+        modifier = modifier
+    )
 }
