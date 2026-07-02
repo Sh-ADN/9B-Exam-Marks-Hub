@@ -13,7 +13,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.abutorab.marks9b.data.local.entity.SheetRole
 import com.abutorab.marks9b.ui.MarksViewModel
+
+private data class MarksheetRowSpec(val displayName: String, val subjectResult: SubjectResult?)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,8 +32,21 @@ fun MarksheetScreen(termId: Int, studentId: Int, viewModel: MarksViewModel, onBa
     }
     val result = allResults.find { it.student.id == studentId } ?: return
 
-    val orderedSubjectResults = remember(result) {
-        result.subjectResults.sortedBy { TabulationDisplay.canonicalOrder(it.subject.sheetRole, it.subject.applicabilityValue) }
+    val marksheetRows = remember(subjects, result) {
+        val religionRepresentative = subjects.firstOrNull { it.sheetRole == SheetRole.RELIGION.name }
+        val nonReligionSubjects = subjects.filter { it.sheetRole != SheetRole.RELIGION.name }
+        val rowSubjects = (religionRepresentative?.let { listOf(it) } ?: emptyList()) + nonReligionSubjects
+
+        rowSubjects
+            .sortedBy { TabulationDisplay.marksheetSubjectOrder(it) }
+            .map { subject ->
+                val sr = if (subject.sheetRole == SheetRole.RELIGION.name) {
+                    result.subjectResults.find { it.subject.sheetRole == SheetRole.RELIGION.name }
+                } else {
+                    result.subjectResults.find { it.subject.id == subject.id }
+                }
+                MarksheetRowSpec(TabulationDisplay.bengaliSubjectName(subject), sr)
+            }
     }
 
     Scaffold(
@@ -96,35 +112,36 @@ fun MarksheetScreen(termId: Int, studentId: Int, viewModel: MarksViewModel, onBa
                             LedgerHeaderCell("গ্রেড", Modifier.width(44.dp))
                         }
                         HorizontalDivider()
-                        orderedSubjectResults.forEachIndexed { index, sr ->
-                            val isFailed = sr.letterGrade == "F"
+                        marksheetRows.forEachIndexed { index, rowSpec ->
+                            val sr = rowSpec.subjectResult
+                            val isFailed = sr?.letterGrade == "F"
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    TabulationDisplay.bengaliSubjectName(sr.subject),
+                                    rowSpec.displayName,
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    color = if (sr == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.weight(1f)
                                 )
-                                LedgerValueCell(sr.mcqMarks?.toString() ?: "-", Modifier.width(42.dp))
-                                LedgerValueCell(sr.writtenMarks?.toString() ?: "-", Modifier.width(42.dp))
-                                LedgerValueCell(sr.practicalMarks?.toString() ?: "-", Modifier.width(42.dp))
+                                LedgerValueCell(sr?.mcqMarks?.toString() ?: "-", Modifier.width(42.dp))
+                                LedgerValueCell(sr?.writtenMarks?.toString() ?: "-", Modifier.width(42.dp))
+                                LedgerValueCell(sr?.practicalMarks?.toString() ?: "-", Modifier.width(42.dp))
                                 LedgerValueCell(
-                                    if (sr.total == 0) "-" else "${sr.total}",
+                                    if (sr == null || sr.total == 0) "-" else "${sr.total}",
                                     Modifier.width(46.dp),
                                     color = if (isFailed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                                    bold = true
+                                    bold = sr != null
                                 )
                                 LedgerValueCell(
-                                    sr.letterGrade.ifEmpty { "-" },
+                                    sr?.letterGrade?.ifEmpty { "-" } ?: "-",
                                     Modifier.width(44.dp),
                                     color = if (isFailed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary,
-                                    bold = true
+                                    bold = sr != null
                                 )
                             }
-                            if (index < orderedSubjectResults.lastIndex) HorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp))
+                            if (index < marksheetRows.lastIndex) HorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp))
                         }
                     }
                 }

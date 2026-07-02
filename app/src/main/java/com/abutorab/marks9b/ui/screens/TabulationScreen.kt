@@ -164,8 +164,8 @@ private fun HeaderCell(text: String, width: Dp, alignStart: Boolean = false) {
     Box(modifier = Modifier.width(width).padding(horizontal = 3.dp), contentAlignment = if (alignStart) Alignment.CenterStart else Alignment.Center) {
         Text(
             text,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.SemiBold,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,

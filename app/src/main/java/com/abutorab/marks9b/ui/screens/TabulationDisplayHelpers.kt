@@ -86,4 +86,33 @@ object TabulationDisplay {
         if (parts.isEmpty() || total == 0) return "-"
         return if (parts.size <= 1) "$total" else parts.joinToString("+") + "=" + total
     }
+
+    // Row order for the per-student Marksheet ledger — grouped by track
+    // (Arts/Commerce/Science clusters), not by slot like Tabulation's columns.
+    // Verified against the physical register photo; correct if it's off.
+    fun marksheetSubjectOrder(subject: SubjectEntity): Int = when (subject.name) {
+        "Bangla 1st Paper" -> 0
+        "Bangla 2nd Paper" -> 1
+        "English 1st Paper" -> 2
+        "English 2nd Paper" -> 3
+        "Mathematics" -> 4
+        "Islam Religion and Moral Education",
+        "Hindu Religion and Moral Education",
+        "Buddhist Religion and Moral Education" -> 5
+        "Agriculture Studies" -> 6
+        "General Science" -> 7
+        "Bangladesh & Global Studies" -> 8
+        "History" -> 9
+        "Geography" -> 10
+        "Civics" -> 11
+        "Finance" -> 12
+        "Accounting" -> 13
+        "B. Entrepreneurship" -> 14
+        "Physics" -> 15
+        "Chemistry" -> 16
+        "Biology" -> 17
+        "Higher Mathematics" -> 18
+        "Information & Communication Technology" -> 19
+        else -> 99
+    }
 }
