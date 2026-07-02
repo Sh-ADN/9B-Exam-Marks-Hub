@@ -334,7 +334,13 @@ fun MarkEntryRow(
                 if (subject.mcqMax != null) {
                 OutlinedTextField(
                     value = mcqText,
-                    onValueChange = { mcqText = it; trySave() },
+                    onValueChange = { newValue ->
+                        val parsed = newValue.toIntOrNull()
+                        if (newValue.isEmpty() || (parsed != null && subject.mcqMax != null && parsed in 0..subject.mcqMax)) {
+                            mcqText = newValue
+                            trySave()
+                        }
+                    },
                     modifier = Modifier.weight(1f),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     isError = mcqError,
@@ -345,7 +351,13 @@ fun MarkEntryRow(
             if (subject.writtenMax != null) {
                 OutlinedTextField(
                     value = writtenText,
-                    onValueChange = { writtenText = it; trySave() },
+                    onValueChange = { newValue ->
+                        val parsed = newValue.toIntOrNull()
+                        if (newValue.isEmpty() || (parsed != null && subject.writtenMax != null && parsed in 0..subject.writtenMax)) {
+                            writtenText = newValue
+                            trySave()
+                        }
+                    },
                     modifier = Modifier.weight(1f),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     isError = writtenError,
@@ -356,7 +368,13 @@ fun MarkEntryRow(
             if (subject.practicalMax != null) {
                 OutlinedTextField(
                     value = practicalText,
-                    onValueChange = { practicalText = it; trySave() },
+                    onValueChange = { newValue ->
+                        val parsed = newValue.toIntOrNull()
+                        if (newValue.isEmpty() || (parsed != null && subject.practicalMax != null && parsed in 0..subject.practicalMax)) {
+                            practicalText = newValue
+                            trySave()
+                        }
+                    },
                     modifier = Modifier.weight(1f),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     isError = practicalError,

@@ -1,7 +1,8 @@
 package com.abutorab.marks9b.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -36,7 +37,7 @@ private fun columnWidthFor(subjectsInGroup: List<SubjectEntity>): Dp {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun TabulationScreen(termId: Int, viewModel: MarksViewModel, onNavigateToMarksheet: (Int) -> Unit, onBack: () -> Unit) {
     val term by viewModel.getTermById(termId).collectAsStateWithLifecycle(initialValue = null)
@@ -66,6 +67,7 @@ fun TabulationScreen(termId: Int, viewModel: MarksViewModel, onNavigateToMarkshe
 
     val summaryColumns = remember { listOf("Total" to 64.dp, "GPA" to 56.dp, "Grade" to 56.dp, "Rank" to 48.dp) }
     val horizontalScrollState = rememberScrollState()
+    var selectedStudentId by remember { mutableStateOf<Int?>(null) }
 
     Scaffold(
         topBar = {
@@ -124,7 +126,11 @@ fun TabulationScreen(termId: Int, viewModel: MarksViewModel, onNavigateToMarkshe
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onNavigateToMarksheet(result.student.id) }
+                                .background(if (selectedStudentId == result.student.id) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+                                .combinedClickable(
+                                    onClick = { selectedStudentId = if (selectedStudentId == result.student.id) null else result.student.id },
+                                    onDoubleClick = { onNavigateToMarksheet(result.student.id) }
+                                )
                                 .padding(vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
