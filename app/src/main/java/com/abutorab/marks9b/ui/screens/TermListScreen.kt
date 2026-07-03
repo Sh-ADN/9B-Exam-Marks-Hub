@@ -2,6 +2,7 @@ package com.abutorab.marks9b.ui.screens
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -29,9 +30,11 @@ fun TermListScreen(
 ) {
     val terms by viewModel.getTermsForYear(yearId).collectAsStateWithLifecycle(initialValue = emptyList())
     var showAddDialog by remember { mutableStateOf(false) }
-    var termToEdit by remember { mutableStateOf<TermEntity?>(null) }
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    val hasMidTerm = terms.any { it.examPeriod == com.abutorab.marks9b.data.local.entity.ExamPeriod.MID_TERM.name }
+    val hasAnnual = terms.any { it.examPeriod == com.abutorab.marks9b.data.local.entity.ExamPeriod.ANNUAL.name }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -45,8 +48,10 @@ fun TermListScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Add Term")
+            if (!hasMidTerm || !hasAnnual) {
+                FloatingActionButton(onClick = { showAddDialog = true }) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Term")
+                }
             }
         }
     ) { innerPadding ->
@@ -69,7 +74,7 @@ fun TermListScreen(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Tap + to add Mid Term or Annual",
+                        text = "Tap + to add অর্ধবার্ষিক or বার্ষিক",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 8.dp)
@@ -101,10 +106,7 @@ fun TermListScreen(
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .combinedClickable(
-                                    onClick = { onNavigateToTermDetail(term.id) },
-                                    onLongClick = { termToEdit = term }
-                                )
+                                .clickable { onNavigateToTermDetail(term.id) }
                         ) {
                             Row(
                                 modifier = Modifier.padding(16.dp),
@@ -143,95 +145,42 @@ fun TermListScreen(
         }
 
         if (showAddDialog) {
-            var label by remember { mutableStateOf("") }
-            var examPeriod by remember { mutableStateOf(com.abutorab.marks9b.data.local.entity.ExamPeriod.MID_TERM.name) }
             AlertDialog(
                 onDismissRequest = { showAddDialog = false },
                 title = { Text("Add Term") },
                 text = {
                     Column {
-                        OutlinedTextField(
-                            value = label,
-                            onValueChange = { label = it },
-                            label = { Text("Term (e.g. Half Yearly)") },
-                            modifier = Modifier.fillMaxWidth()
+                        Text(
+                            "Choose which exam period to add for this year.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 12.dp)
                         )
-                        Spacer(Modifier.height(8.dp))
-                        Text("Exam Period", style = MaterialTheme.typography.labelMedium)
-                        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                            RadioButton(
-                                selected = examPeriod == com.abutorab.marks9b.data.local.entity.ExamPeriod.MID_TERM.name,
-                                onClick = { examPeriod = com.abutorab.marks9b.data.local.entity.ExamPeriod.MID_TERM.name }
-                            )
-                            Text("Mid Term")
-                            Spacer(Modifier.width(16.dp))
-                            RadioButton(
-                                selected = examPeriod == com.abutorab.marks9b.data.local.entity.ExamPeriod.ANNUAL.name,
-                                onClick = { examPeriod = com.abutorab.marks9b.data.local.entity.ExamPeriod.ANNUAL.name }
-                            )
-                            Text("Annual")
+                        TextButton(
+                            onClick = {
+                                viewModel.insertTerm(yearId, "অর্ধবার্ষিক", com.abutorab.marks9b.data.local.entity.ExamPeriod.MID_TERM.name)
+                                showAddDialog = false
+                            },
+                            enabled = !hasMidTerm,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(if (hasMidTerm) "অর্ধবার্ষিক (already added)" else "অর্ধবার্ষিক")
+                        }
+                        TextButton(
+                            onClick = {
+                                viewModel.insertTerm(yearId, "বার্ষিক", com.abutorab.marks9b.data.local.entity.ExamPeriod.ANNUAL.name)
+                                showAddDialog = false
+                            },
+                            enabled = !hasAnnual,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(if (hasAnnual) "বার্ষিক (already added)" else "বার্ষিক")
                         }
                     }
                 },
-                confirmButton = {
-                    TextButton(onClick = {
-                        if (label.isNotBlank()) {
-                            viewModel.insertTerm(yearId, label, examPeriod)
-                            showAddDialog = false
-                        }
-                    }) {
-                        Text("Add")
-                    }
-                },
+                confirmButton = {},
                 dismissButton = {
                     TextButton(onClick = { showAddDialog = false }) { Text("Cancel") }
-                }
-            )
-        }
-
-        if (termToEdit != null) {
-            var label by remember { mutableStateOf(termToEdit!!.label) }
-            var examPeriod by remember { mutableStateOf(termToEdit!!.examPeriod) }
-            AlertDialog(
-                onDismissRequest = { termToEdit = null },
-                title = { Text("Edit Term") },
-                text = {
-                    Column {
-                        OutlinedTextField(
-                            value = label,
-                            onValueChange = { label = it },
-                            label = { Text("Term") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text("Exam Period", style = MaterialTheme.typography.labelMedium)
-                        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                            RadioButton(
-                                selected = examPeriod == com.abutorab.marks9b.data.local.entity.ExamPeriod.MID_TERM.name,
-                                onClick = { examPeriod = com.abutorab.marks9b.data.local.entity.ExamPeriod.MID_TERM.name }
-                            )
-                            Text("Mid Term")
-                            Spacer(Modifier.width(16.dp))
-                            RadioButton(
-                                selected = examPeriod == com.abutorab.marks9b.data.local.entity.ExamPeriod.ANNUAL.name,
-                                onClick = { examPeriod = com.abutorab.marks9b.data.local.entity.ExamPeriod.ANNUAL.name }
-                            )
-                            Text("Annual")
-                        }
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = {
-                        if (label.isNotBlank()) {
-                            viewModel.updateTerm(termToEdit!!.copy(label = label, examPeriod = examPeriod))
-                            termToEdit = null
-                        }
-                    }) {
-                        Text("Save")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { termToEdit = null }) { Text("Cancel") }
                 }
             )
         }
