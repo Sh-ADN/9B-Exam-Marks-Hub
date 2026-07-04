@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,6 +32,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.LocalContext
 import com.abutorab.marks9b.data.local.PreferencesHelper
 import com.abutorab.marks9b.data.local.entity.*
+import com.abutorab.marks9b.data.remote.SheetsSyncService
+import com.abutorab.marks9b.data.remote.RosterSync
 import com.abutorab.marks9b.ui.MarksViewModel
 import kotlinx.coroutines.launch
 
@@ -50,6 +53,7 @@ fun TermDetailScreen(
     val term by viewModel.getTermById(termId).collectAsStateWithLifecycle(initialValue = null)
     if (term == null) return
     val yearId = term!!.yearId
+    val year by viewModel.getYearById(yearId).collectAsStateWithLifecycle(initialValue = null)
     
     val launcher = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
@@ -76,7 +80,7 @@ fun TermDetailScreen(
                         IconButton(onClick = { onNavigateToTabulation(termId) }) {
                             Icon(Icons.Default.DateRange, contentDescription = "View Tabulation")
                         }
-                        if (selectedTabIndex == 0) {
+                        if (selectedTabIndex == 0 && year?.sheetId == null) {
                             var showMenu by remember { mutableStateOf(false) }
                             IconButton(onClick = { showMenu = true }) {
                                 Icon(Icons.Default.MoreVert, contentDescription = "More options")
@@ -120,9 +124,57 @@ fun TermDetailScreen(
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun StudentsTab(yearId: Int, viewModel: MarksViewModel, snackbarHostState: SnackbarHostState, coroutineScope: kotlinx.coroutines.CoroutineScope) {
+    val year by viewModel.getYearById(yearId).collectAsStateWithLifecycle(initialValue = null)
     val students by viewModel.getStudentsForYear(yearId).collectAsStateWithLifecycle(initialValue = emptyList())
     var showAddSheet by remember { mutableStateOf(false) }
     var studentToEdit by remember { mutableStateOf<StudentEntity?>(null) }
+    var isSyncing by remember { mutableStateOf(false) }
+    var pendingDeletions by remember { mutableStateOf<List<StudentEntity>>(emptyList()) }
+    var incompleteEntries by remember { mutableStateOf<List<SheetsSyncService.RosterEntry>>(emptyList()) }
+
+    val hasSheet = year?.sheetId != null
+
+    fun runSync() {
+        val sheetId = year?.sheetId ?: return
+        isSyncing = true
+        coroutineScope.launch {
+            val result = SheetsSyncService.fetchRoster(sheetId)
+            isSyncing = false
+            if (result.isSuccess) {
+                val roster = result.getOrNull() ?: emptyList()
+                val diff = RosterSync.diff(students, roster)
+
+                diff.toInsert.forEach { entry ->
+                    viewModel.insertStudent(
+                        StudentEntity(
+                            yearId = yearId,
+                            roll = entry.roll,
+                            name = entry.name,
+                            religion = entry.religion,
+                            group = entry.group,
+                            optionalType = entry.optionalType
+                        )
+                    )
+                }
+
+                diff.toUpdate.forEach { (local, entry) ->
+                    viewModel.updateStudent(local.copy(name = entry.name))
+                }
+
+                if (diff.missingLocally.isNotEmpty()) {
+                    pendingDeletions = diff.missingLocally
+                }
+                if (diff.incompleteInSheet.isNotEmpty()) {
+                    incompleteEntries = diff.incompleteInSheet
+                }
+
+                val summary = "Synced: ${diff.toInsert.size} added, ${diff.toUpdate.size} updated"
+                snackbarHostState.showSnackbar(summary)
+            } else {
+                snackbarHostState.showSnackbar(result.exceptionOrNull()?.message ?: "Sync failed")
+            }
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (students.isEmpty()) {
@@ -144,7 +196,7 @@ fun StudentsTab(yearId: Int, viewModel: MarksViewModel, snackbarHostState: Snack
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Import a CSV or tap + to add one",
+                        text = if (hasSheet) "Tap sync to pull students from the linked Sheet" else "Import a CSV or tap + to add one",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 8.dp)
@@ -157,6 +209,23 @@ fun StudentsTab(yearId: Int, viewModel: MarksViewModel, snackbarHostState: Snack
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(bottom = 80.dp)
             ) {
+                if (incompleteEntries.isNotEmpty()) {
+                    item {
+                        Surface(
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    "Skipped ${incompleteEntries.size} student(s) from the Sheet — missing religion, group, or optional subject",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                        }
+                    }
+                }
                 items(students, key = { it.id }) { student ->
                     SwipeToDeleteContainer(
                         item = student,
@@ -227,10 +296,16 @@ fun StudentsTab(yearId: Int, viewModel: MarksViewModel, snackbarHostState: Snack
         }
 
         FloatingActionButton(
-            onClick = { showAddSheet = true },
+            onClick = { if (hasSheet) runSync() else showAddSheet = true },
             modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
         ) {
-            Icon(Icons.Default.Add, contentDescription = "Add Student")
+            if (isSyncing) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+            } else if (hasSheet) {
+                Icon(Icons.Default.Refresh, contentDescription = "Sync Roster")
+            } else {
+                Icon(Icons.Default.Add, contentDescription = "Add Student")
+            }
         }
     }
 
@@ -250,6 +325,43 @@ fun StudentsTab(yearId: Int, viewModel: MarksViewModel, snackbarHostState: Snack
                 studentToEdit = null
             })
         }
+    }
+
+    if (pendingDeletions.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = { pendingDeletions = emptyList() },
+            title = { Text("Students not found in Sheet") },
+            text = {
+                Column {
+                    Text(
+                        "These ${pendingDeletions.size} student(s) exist locally but weren't found in the linked Sheet. Delete them?",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    pendingDeletions.forEach { student ->
+                        Text("Roll ${student.roll} — ${student.name}", style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val toDelete = pendingDeletions
+                    pendingDeletions = emptyList()
+                    coroutineScope.launch {
+                        toDelete.forEach { viewModel.snapshotAndDeleteStudent(it) }
+                        val result = snackbarHostState.showSnackbar("${toDelete.size} student(s) deleted", "Undo", duration = SnackbarDuration.Short)
+                        if (result == SnackbarResult.ActionPerformed) {
+                            viewModel.undoLastDelete()
+                        }
+                    }
+                }) {
+                    Text("Delete Listed", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDeletions = emptyList() }) { Text("Keep All") }
+            }
+        )
     }
 }
 
