@@ -127,4 +127,63 @@ object SheetsSyncService {
             Result.failure(e)
         }
     }
+
+    data class RosterEntry(
+        val roll: Int,
+        val name: String,
+        val religion: String,
+        val group: String,
+        val optionalType: String
+    )
+
+    suspend fun fetchRoster(sheetId: String): Result<List<RosterEntry>> = withContext(Dispatchers.IO) {
+        try {
+            val url = URL(ENDPOINT)
+            val connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "POST"
+            connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+            connection.doOutput = true
+
+            val requestJson = JSONObject()
+            requestJson.put("secret", BuildConfig.SHEETS_SYNC_SECRET)
+            requestJson.put("action", "read_roster")
+            requestJson.put("spreadsheetId", sheetId)
+
+            OutputStreamWriter(connection.outputStream, "UTF-8").use { writer ->
+                writer.write(requestJson.toString())
+                writer.flush()
+            }
+
+            val responseCode = connection.responseCode
+            if (responseCode == HttpURLConnection.HTTP_OK || responseCode == HttpURLConnection.HTTP_MOVED_TEMP || responseCode == HttpURLConnection.HTTP_MOVED_PERM) {
+                val inputStream = if (responseCode >= 400) connection.errorStream else connection.inputStream
+                val responseText = inputStream.bufferedReader().use { it.readText() }
+                val responseJson = JSONObject(responseText)
+
+                if (responseJson.optString("status") == "success") {
+                    val studentsArray = responseJson.optJSONArray("students") ?: JSONArray()
+                    val roster = mutableListOf<RosterEntry>()
+                    for (i in 0 until studentsArray.length()) {
+                        val obj = studentsArray.getJSONObject(i)
+                        roster.add(
+                            RosterEntry(
+                                roll = obj.optInt("roll"),
+                                name = obj.optString("name"),
+                                religion = obj.optString("religion"),
+                                group = obj.optString("group"),
+                                optionalType = obj.optString("optionalType")
+                            )
+                        )
+                    }
+                    Result.success(roster)
+                } else {
+                    Result.failure(Exception(responseJson.optString("message", "Unknown error from script")))
+                }
+            } else {
+                Result.failure(Exception("HTTP error code: $responseCode"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }
