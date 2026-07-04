@@ -55,6 +55,7 @@ import com.abutorab.marks9b.data.repository.MarksRepository
 import com.abutorab.marks9b.ui.MarksViewModel
 import com.abutorab.marks9b.ui.MarksViewModelFactory
 import com.abutorab.marks9b.ui.screens.TabulationScreen
+import com.abutorab.marks9b.ui.screens.CombinedTabulationScreen
 import com.abutorab.marks9b.ui.screens.MarksheetScreen
 import com.abutorab.marks9b.ui.screens.TermDetailScreen
 import com.abutorab.marks9b.ui.screens.TermListScreen
@@ -100,9 +101,21 @@ class MainActivity : ComponentActivity() {
             arguments = listOf(navArgument("yearId") { type = NavType.IntType })
           ) { backStackEntry ->
             val yearId = backStackEntry.arguments?.getInt("yearId") ?: 0
-            TermListScreen(yearId = yearId, viewModel = viewModel, onNavigateToTermDetail = { termId ->
-              navController.navigate("termDetail/$termId")
-            })
+            TermListScreen(
+              yearId = yearId, 
+              viewModel = viewModel, 
+              onNavigateToTermDetail = { termId ->
+                navController.navigate("termDetail/$termId")
+              },
+              onNavigateToCombined = { navController.navigate("combined/$yearId") }
+            )
+          }
+          composable(
+              "combined/{yearId}",
+              arguments = listOf(navArgument("yearId") { type = NavType.IntType })
+          ) { backStackEntry ->
+              val yearId = backStackEntry.arguments?.getInt("yearId") ?: 0
+              CombinedTabulationScreen(yearId = yearId, viewModel = viewModel, onBack = { navController.popBackStack() })
           }
           composable(
             "termDetail/{termId}",

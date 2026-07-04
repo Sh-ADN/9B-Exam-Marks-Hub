@@ -29,6 +29,29 @@ data class StudentResult(
     val position: Int?
 )
 
+data class CombinedSubjectResult(
+    val sheetRole: String,
+    val applicabilityValue: String?,
+    val subjectName: String,
+    val fullMarks: Int,
+    val mcqMarks: Double?,
+    val writtenMarks: Double?,
+    val practicalMarks: Double?,
+    val total: Double,
+    val letterGrade: String,
+    val gradePoint: Double
+)
+
+data class CombinedStudentResult(
+    val student: StudentEntity,
+    val subjectResults: List<CombinedSubjectResult>,
+    val grandTotal: Double,
+    val failedCount: Int,
+    val gpa: Double?,
+    val letterGrade: String,
+    val position: Int?
+)
+
 object TabulationEngine {
 
     fun letterGrade(total: Int, fullMarks: Int, sheetRole: SheetRole): String {
@@ -200,5 +223,154 @@ object TabulationEngine {
         }
 
         return rankedResults
+    }
+
+    fun letterGradeDouble(total: Double, fullMarks: Int, sheetRole: SheetRole): String {
+        if (total <= 0.0) return ""
+        if (sheetRole == SheetRole.ICT || fullMarks == 50) {
+            return when {
+                total >= 40 -> "A+"
+                total >= 35 -> "A"
+                total >= 30 -> "A-"
+                total >= 25 -> "B"
+                total >= 20 -> "C"
+                total >= 17 -> "D"
+                else -> "F"
+            }
+        } else {
+            return when {
+                total >= 80 -> "A+"
+                total >= 70 -> "A"
+                total >= 60 -> "A-"
+                total >= 50 -> "B"
+                total >= 40 -> "C"
+                total >= 33 -> "D"
+                else -> "F"
+            }
+        }
+    }
+
+    fun combinedGPDouble(combined: Double, outOf: Int): Double {
+        return when {
+            combined >= 160 -> 5.0
+            combined >= 140 -> 4.0
+            combined >= 120 -> 3.5
+            combined >= 100 -> 3.0
+            combined >= 80 -> 2.0
+            combined >= 66 -> 1.0
+            else -> 0.0
+        }
+    }
+
+    fun computeCombined(
+        students: List<StudentEntity>,
+        midSubjects: List<SubjectEntity>,
+        midMarks: List<MarkEntity>,
+        annualSubjects: List<SubjectEntity>,
+        annualMarks: List<MarkEntity>
+    ): List<CombinedStudentResult> {
+        val midResults = compute(students, midSubjects, midMarks).associateBy { it.student.id }
+        val annualResults = compute(students, annualSubjects, annualMarks).associateBy { it.student.id }
+
+        val studentResults = mutableListOf<CombinedStudentResult>()
+
+        for (student in students) {
+            val midSr = midResults[student.id]?.subjectResults ?: emptyList()
+            val annSr = annualResults[student.id]?.subjectResults ?: emptyList()
+
+            val slotKeys = (midSr.map { it.subject.sheetRole to it.subject.applicabilityValue } +
+                    annSr.map { it.subject.sheetRole to it.subject.applicabilityValue }).distinct()
+
+            val combinedSubjects = mutableListOf<CombinedSubjectResult>()
+            var grandTotal = 0.0
+            var failedCount = 0
+
+            var bangla1Total = 0.0
+            var bangla2Total = 0.0
+            var eng1Total = 0.0
+            var eng2Total = 0.0
+
+            val individualGPs = mutableListOf<Double>()
+            var optionalBonusGP = 0.0
+
+            for ((role, value) in slotKeys) {
+                val m = midSr.find { it.subject.sheetRole == role && it.subject.applicabilityValue == value }
+                val a = annSr.find { it.subject.sheetRole == role && it.subject.applicabilityValue == value }
+                val referenceSubject = m?.subject ?: a?.subject ?: continue
+
+                fun combineComponent(midVal: Int?, annVal: Int?): Double? {
+                    if (midVal == null && annVal == null) return null
+                    return ((midVal ?: 0) + (annVal ?: 0)) / 2.0
+                }
+
+                val cMcq = combineComponent(m?.mcqMarks, a?.mcqMarks)
+                val cWritten = combineComponent(m?.writtenMarks, a?.writtenMarks)
+                val cPractical = combineComponent(m?.practicalMarks, a?.practicalMarks)
+                val cTotal = (cMcq ?: 0.0) + (cWritten ?: 0.0) + (cPractical ?: 0.0)
+
+                val sheetRole = try { SheetRole.valueOf(role) } catch (e: Exception) { SheetRole.NONE }
+                val lg = letterGradeDouble(cTotal, referenceSubject.fullMarks, sheetRole)
+                val gp = gradePointFromLetter(lg)
+
+                if (lg == "F" && sheetRole != SheetRole.OPTIONAL) {
+                    failedCount++
+                }
+
+                combinedSubjects.add(
+                    CombinedSubjectResult(role, value, referenceSubject.name, referenceSubject.fullMarks, cMcq, cWritten, cPractical, cTotal, lg, gp)
+                )
+                grandTotal += cTotal
+
+                when (sheetRole) {
+                    SheetRole.BANGLA1 -> bangla1Total = cTotal
+                    SheetRole.BANGLA2 -> bangla2Total = cTotal
+                    SheetRole.ENG1 -> eng1Total = cTotal
+                    SheetRole.ENG2 -> eng2Total = cTotal
+                    SheetRole.MATH,
+                    SheetRole.RELIGION,
+                    SheetRole.BGS_OR_SCIENCE,
+                    SheetRole.ELECTIVE1,
+                    SheetRole.ELECTIVE2,
+                    SheetRole.ELECTIVE3,
+                    SheetRole.ICT -> individualGPs.add(gp)
+                    SheetRole.OPTIONAL -> optionalBonusGP = optionalBonus(gp)
+                    else -> {}
+                }
+            }
+
+            val banglaGP = combinedGPDouble(bangla1Total + bangla2Total, 200)
+            val engGP = combinedGPDouble(eng1Total + eng2Total, 200)
+            val gpSum = individualGPs.sum() + banglaGP + engGP + optionalBonusGP
+
+            val gpa: Double? = if (grandTotal == 0.0) null else {
+                if (failedCount > 0) 0.0 else min(5.0, gpSum / 9.0)
+            }
+
+            val overallLg = when {
+                gpa == null -> ""
+                failedCount > 0 -> "F"
+                gpa >= 5.0 -> "A+"
+                gpa >= 4.0 -> "A"
+                gpa >= 3.5 -> "A-"
+                gpa >= 3.0 -> "B"
+                gpa >= 2.0 -> "C"
+                gpa >= 1.0 -> "D"
+                else -> "F"
+            }
+
+            studentResults.add(
+                CombinedStudentResult(student, combinedSubjects, grandTotal, failedCount, gpa, overallLg, null)
+            )
+        }
+
+        return studentResults.map { result ->
+            if (result.grandTotal == 0.0) {
+                result.copy(position = null)
+            } else {
+                val rank = studentResults.count { it.failedCount < result.failedCount } +
+                        studentResults.count { it.failedCount == result.failedCount && it.grandTotal > result.grandTotal } + 1
+                result.copy(position = rank)
+            }
+        }
     }
 }
