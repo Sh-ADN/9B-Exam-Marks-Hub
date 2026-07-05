@@ -266,9 +266,9 @@ fun StudentsTab(yearId: Int, viewModel: MarksViewModel, snackbarHostState: Snack
                                     contentAlignment = androidx.compose.ui.Alignment.Center
                                 ) {
                                     Text(
-                                        text = student.name.take(1).uppercase(),
+                                        text = student.roll.toString(),
                                         color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        style = MaterialTheme.typography.titleMedium
+                                        style = MaterialTheme.typography.labelLarge
                                     )
                                 }
                                 Spacer(modifier = Modifier.width(16.dp))

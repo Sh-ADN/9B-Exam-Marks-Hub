@@ -112,7 +112,7 @@ fun DashboardScreen(termId: Int, viewModel: MarksViewModel, onBack: () -> Unit) 
                 item { SectionLabel("Subject-wise Deep Analysis") }
                 if (stats.hardestSubjects.isNotEmpty()) {
                     item {
-                        val names = stats.hardestSubjects.joinToString(", ") { abbreviateSubjectName(it.subjectName) }
+                        val names = stats.hardestSubjects.joinToString(", ") { bengaliSubjectLabel(it.subjectName) }
                         val avgPercent = stats.hardestSubjects.first().let { (it.average / it.fullMarks) * 100.0 }
                         Surface(
                             color = MaterialTheme.colorScheme.errorContainer,
@@ -222,7 +222,7 @@ private fun SubjectStatsTable(subjects: List<SubjectStats>) {
             HorizontalDivider()
             subjects.forEachIndexed { index, s ->
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(abbreviateSubjectName(s.subjectName), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                    Text(bengaliSubjectLabel(s.subjectName), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                     TableValueCell("%.1f".format(s.average), Modifier.width(56.dp))
                     TableValueCell(s.highest.toString(), Modifier.width(44.dp))
                     TableValueCell(s.lowest.toString(), Modifier.width(44.dp))
@@ -278,20 +278,28 @@ private fun TableValueCell(text: String, modifier: Modifier = Modifier, color: C
     Text(text, style = MaterialTheme.typography.bodySmall, fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal, color = color, textAlign = TextAlign.Center, modifier = modifier)
 }
 
-private fun abbreviateSubjectName(name: String): String = when (name) {
-    "Bangla 1st Paper" -> "Bangla 1"
-    "Bangla 2nd Paper" -> "Bangla 2"
-    "English 1st Paper" -> "Eng 1"
-    "English 2nd Paper" -> "Eng 2"
-    "Mathematics" -> "Math"
-    "Islam Religion and Moral Education" -> "Islam"
-    "Hindu Religion and Moral Education" -> "Hindu"
-    "Buddhist Religion and Moral Education" -> "Buddhist"
-    "Bangladesh & Global Studies" -> "BGS"
-    "General Science" -> "Science"
-    "B. Entrepreneurship" -> "B. Ent."
-    "Higher Mathematics" -> "Higher Math"
-    "Agriculture Studies" -> "Agriculture"
-    "Information & Communication Technology" -> "ICT"
+private fun bengaliSubjectLabel(name: String): String = when (name) {
+    "Bangla 1st Paper" -> "বাংলা ১ম"
+    "Bangla 2nd Paper" -> "বাংলা ২য়"
+    "English 1st Paper" -> "ইংরেজি ১ম"
+    "English 2nd Paper" -> "ইংরেজি ২য়"
+    "Mathematics" -> "গণিত"
+    "Islam Religion and Moral Education" -> "ইসলাম"
+    "Hindu Religion and Moral Education" -> "হিন্দু"
+    "Buddhist Religion and Moral Education" -> "বৌদ্ধ"
+    "Bangladesh & Global Studies" -> "বাংলাদেশ ও বিশ্বপরিচয়"
+    "General Science" -> "সাধারণ বিজ্ঞান"
+    "Physics" -> "পদার্থ বিজ্ঞান"
+    "Chemistry" -> "রসায়ন বিজ্ঞান"
+    "Biology" -> "জীব বিজ্ঞান"
+    "Accounting" -> "হিসাব বিজ্ঞান"
+    "Finance" -> "ফাইন্যান্স ও ব্যাংকিং"
+    "B. Entrepreneurship" -> "ব্যবসায় উদ্যোগ"
+    "History" -> "ইতিহাস"
+    "Geography" -> "ভূগোল"
+    "Civics" -> "পৌরনীতি"
+    "Higher Mathematics" -> "উচ্চতর গণিত"
+    "Agriculture Studies" -> "কৃষি শিক্ষা"
+    "Information & Communication Technology" -> "তথ্য ও যোগাযোগ প্রযুক্তি"
     else -> name
 }
