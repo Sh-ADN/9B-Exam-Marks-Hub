@@ -128,7 +128,8 @@ class MainActivity : ComponentActivity() {
                 onNavigateToMarksEntry = { term, subject ->
                     navController.navigate("marksEntry/$term/$subject")
                 },
-                onNavigateToTabulation = { tId -> navController.navigate("tabulation/$tId") }
+                onNavigateToTabulation = { tId -> navController.navigate("tabulation/$tId") },
+                onNavigateToDashboard = { tId -> navController.navigate("dashboard/$tId") }
             )
           }
           composable(
@@ -142,6 +143,13 @@ class MainActivity : ComponentActivity() {
                 onNavigateToMarksheet = { sId -> navController.navigate("marksheet/$termId/$sId") },
                 onBack = { navController.popBackStack() }
             )
+          }
+          composable(
+              "dashboard/{termId}",
+              arguments = listOf(navArgument("termId") { type = NavType.IntType })
+          ) { backStackEntry ->
+              val termId = backStackEntry.arguments?.getInt("termId") ?: 0
+              com.abutorab.marks9b.ui.screens.DashboardScreen(termId = termId, viewModel = viewModel, onBack = { navController.popBackStack() })
           }
           composable(
             "marksEntry/{termId}/{subjectId}",

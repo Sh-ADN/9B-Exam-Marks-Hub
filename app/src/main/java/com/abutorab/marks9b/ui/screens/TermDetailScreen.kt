@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.LocalContext
@@ -43,7 +44,8 @@ fun TermDetailScreen(
     termId: Int,
     viewModel: MarksViewModel,
     onNavigateToMarksEntry: (Int, Int) -> Unit,
-    onNavigateToTabulation: (Int) -> Unit
+    onNavigateToTabulation: (Int) -> Unit,
+    onNavigateToDashboard: (Int) -> Unit
 ) {
     val context = LocalContext.current
     LaunchedEffect(termId) {
@@ -77,6 +79,9 @@ fun TermDetailScreen(
                         titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                     ),
                     actions = {
+                        IconButton(onClick = { onNavigateToDashboard(termId) }) {
+                            Icon(Icons.Default.Info, contentDescription = "View Dashboard")
+                        }
                         IconButton(onClick = { onNavigateToTabulation(termId) }) {
                             Icon(Icons.Default.DateRange, contentDescription = "View Tabulation")
                         }
