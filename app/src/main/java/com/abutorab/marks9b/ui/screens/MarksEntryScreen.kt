@@ -2,15 +2,12 @@ package com.abutorab.marks9b.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -63,24 +60,17 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
     var isImporting by remember { mutableStateOf(false) }
     var hasAutoImported by remember(subjectId) { mutableStateOf(false) }
 
-    val componentCount = remember(subject) {
-        listOf(subject.mcqMax, subject.writtenMax, subject.practicalMax).count { it != null }
-    }
-    val focusRequesters = remember(filteredStudents.size, componentCount) {
-        List(filteredStudents.size * componentCount) { FocusRequester() }
-    }
-
     fun performImport(showFeedback: Boolean) {
         val sheetId = currentYear.sheetId ?: return
         isImporting = true
         coroutineScope.launch {
-            val componentCountForImport = listOf(subject.mcqMax, subject.writtenMax, subject.practicalMax).count { it != null }
+            val componentCount = listOf(subject.mcqMax, subject.writtenMax, subject.practicalMax).count { it != null }
             val startColumn = if (currentTerm.examPeriod == com.abutorab.marks9b.data.local.entity.ExamPeriod.MID_TERM.name) {
                 3
             } else {
-                3 + componentCountForImport
+                3 + componentCount
             }
-            val result = SheetsSyncService.importSubjectMarks(sheetId, subject.sheetTabName, startColumn, componentCountForImport)
+            val result = SheetsSyncService.importSubjectMarks(sheetId, subject.sheetTabName, startColumn, componentCount)
             isImporting = false
             if (result.isSuccess) {
                 var updatedCount = 0
@@ -177,15 +167,15 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
                                             }
                                         }
                                         
-                                        var componentCountForExport = 0
-                                        if (subject.mcqMax != null) componentCountForExport++
-                                        if (subject.writtenMax != null) componentCountForExport++
-                                        if (subject.practicalMax != null) componentCountForExport++
+                                        var componentCount = 0
+                                        if (subject.mcqMax != null) componentCount++
+                                        if (subject.writtenMax != null) componentCount++
+                                        if (subject.practicalMax != null) componentCount++
                                         
                                         val startColumn = if (currentTerm.examPeriod == com.abutorab.marks9b.data.local.entity.ExamPeriod.MID_TERM.name) {
                                             3
                                         } else {
-                                            3 + componentCountForExport
+                                            3 + componentCount
                                         }
                                         
                                         val result = SheetsSyncService.exportSubjectMarks(sheetId, subject.sheetTabName, startColumn, entries)
@@ -255,17 +245,12 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    itemsIndexed(filteredStudents, key = { _, student -> student.id }) { index, student ->
+                    items(filteredStudents, key = { it.id }) { student ->
                         val mark = marks.find { it.studentId == student.id }
-                        val rowStart = index * componentCount
-                        val rowRequesters = focusRequesters.subList(rowStart, rowStart + componentCount)
-                        val nextRowFirstRequester = if (index < filteredStudents.lastIndex) focusRequesters.getOrNull(rowStart + componentCount) else null
                         MarkEntryRow(
                             student = student,
                             subject = subject,
                             existingMark = mark,
-                            rowFocusRequesters = rowRequesters,
-                            nextRowFirstFocusRequester = nextRowFirstRequester,
                             onSaveMark = { mcq, written, practical ->
                                 viewModel.saveMark(
                                     MarkEntity(
@@ -291,8 +276,6 @@ fun MarkEntryRow(
     student: StudentEntity,
     subject: SubjectEntity,
     existingMark: MarkEntity?,
-    rowFocusRequesters: List<FocusRequester>,
-    nextRowFirstFocusRequester: FocusRequester?,
     onSaveMark: (mcq: Int?, written: Int?, practical: Int?) -> Unit
 ) {
     var mcqText by remember(existingMark?.mcqMarks) { mutableStateOf(existingMark?.mcqMarks?.toString() ?: "") }
@@ -322,15 +305,6 @@ fun MarkEntryRow(
 
     val total = (mcqText.toIntOrNull() ?: 0) + (writtenText.toIntOrNull() ?: 0) + (practicalText.toIntOrNull() ?: 0)
 
-    var reqIdx = 0
-    val mcqFocusRequester = if (subject.mcqMax != null) rowFocusRequesters.getOrNull(reqIdx++) else null
-    val writtenFocusRequester = if (subject.writtenMax != null) rowFocusRequesters.getOrNull(reqIdx++) else null
-    val practicalFocusRequester = if (subject.practicalMax != null) rowFocusRequesters.getOrNull(reqIdx++) else null
-
-    val mcqNextTarget = writtenFocusRequester ?: practicalFocusRequester ?: nextRowFirstFocusRequester
-    val writtenNextTarget = practicalFocusRequester ?: nextRowFirstFocusRequester
-    val practicalNextTarget = nextRowFirstFocusRequester
-
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         modifier = Modifier.fillMaxWidth()
@@ -355,7 +329,7 @@ fun MarkEntryRow(
             }
             Spacer(Modifier.height(16.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (subject.mcqMax != null && mcqFocusRequester != null) {
+                if (subject.mcqMax != null) {
                     OutlinedTextField(
                         value = mcqText,
                         onValueChange = { newValue ->
@@ -365,15 +339,14 @@ fun MarkEntryRow(
                                 trySave()
                             }
                         },
-                        modifier = Modifier.weight(1f).focusRequester(mcqFocusRequester),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = if (mcqNextTarget != null) ImeAction.Next else ImeAction.Done),
-                        keyboardActions = KeyboardActions(onNext = { mcqNextTarget?.requestFocus() }),
+                        modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                         isError = mcqError,
                         label = { Text("MCQ / ${subject.mcqMax}") },
                         singleLine = true
                     )
                 }
-                if (subject.writtenMax != null && writtenFocusRequester != null) {
+                if (subject.writtenMax != null) {
                     OutlinedTextField(
                         value = writtenText,
                         onValueChange = { newValue ->
@@ -383,15 +356,14 @@ fun MarkEntryRow(
                                 trySave()
                             }
                         },
-                        modifier = Modifier.weight(1f).focusRequester(writtenFocusRequester),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = if (writtenNextTarget != null) ImeAction.Next else ImeAction.Done),
-                        keyboardActions = KeyboardActions(onNext = { writtenNextTarget?.requestFocus() }),
+                        modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                         isError = writtenError,
                         label = { Text("CQ / ${subject.writtenMax}") },
                         singleLine = true
                     )
                 }
-                if (subject.practicalMax != null && practicalFocusRequester != null) {
+                if (subject.practicalMax != null) {
                     OutlinedTextField(
                         value = practicalText,
                         onValueChange = { newValue ->
@@ -401,9 +373,8 @@ fun MarkEntryRow(
                                 trySave()
                             }
                         },
-                        modifier = Modifier.weight(1f).focusRequester(practicalFocusRequester),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = if (practicalNextTarget != null) ImeAction.Next else ImeAction.Done),
-                        keyboardActions = KeyboardActions(onNext = { practicalNextTarget?.requestFocus() }),
+                        modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                         isError = practicalError,
                         label = { Text("Prac / ${subject.practicalMax}") },
                         singleLine = true
