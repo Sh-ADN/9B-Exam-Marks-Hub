@@ -3,11 +3,14 @@ package com.abutorab.marks9b.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -18,6 +21,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.ExperimentalFoundationApi
 import com.abutorab.marks9b.data.local.entity.StudentEntity
 import com.abutorab.marks9b.data.local.entity.SubjectEntity
 import com.abutorab.marks9b.data.local.entity.MarkEntity
@@ -241,7 +245,7 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    modifier = Modifier.fillMaxWidth().weight(1f).imePadding(),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -271,6 +275,7 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MarkEntryRow(
     student: StudentEntity,
@@ -305,9 +310,20 @@ fun MarkEntryRow(
 
     val total = (mcqText.toIntOrNull() ?: 0) + (writtenText.toIntOrNull() ?: 0) + (practicalText.toIntOrNull() ?: 0)
 
+    val rowBringIntoViewRequester = remember { BringIntoViewRequester() }
+    var mcqFocused by remember { mutableStateOf(false) }
+    var writtenFocused by remember { mutableStateOf(false) }
+    var practicalFocused by remember { mutableStateOf(false) }
+
+    LaunchedEffect(mcqFocused, writtenFocused, practicalFocused) {
+        if (mcqFocused || writtenFocused || practicalFocused) {
+            rowBringIntoViewRequester.bringIntoView()
+        }
+    }
+
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth().bringIntoViewRequester(rowBringIntoViewRequester)
     ) {
         Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -339,7 +355,7 @@ fun MarkEntryRow(
                                 trySave()
                             }
                         },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).onFocusEvent { mcqFocused = it.isFocused },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                         isError = mcqError,
                         label = { Text("MCQ / ${subject.mcqMax}") },
@@ -356,7 +372,7 @@ fun MarkEntryRow(
                                 trySave()
                             }
                         },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).onFocusEvent { writtenFocused = it.isFocused },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                         isError = writtenError,
                         label = { Text("CQ / ${subject.writtenMax}") },
@@ -373,7 +389,7 @@ fun MarkEntryRow(
                                 trySave()
                             }
                         },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).onFocusEvent { practicalFocused = it.isFocused },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                         isError = practicalError,
                         label = { Text("Prac / ${subject.practicalMax}") },
