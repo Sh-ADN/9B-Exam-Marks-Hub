@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -45,7 +46,8 @@ fun TermDetailScreen(
     viewModel: MarksViewModel,
     onNavigateToMarksEntry: (Int, Int) -> Unit,
     onNavigateToTabulation: (Int) -> Unit,
-    onNavigateToDashboard: (Int) -> Unit
+    onNavigateToDashboard: (Int) -> Unit,
+    onNavigateToMarksheet: (Int) -> Unit
 ) {
     val context = LocalContext.current
     LaunchedEffect(termId) {
@@ -116,7 +118,13 @@ fun TermDetailScreen(
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
             if (selectedTabIndex == 0) {
-                StudentsTab(yearId = yearId, viewModel = viewModel, snackbarHostState = snackbarHostState, coroutineScope = coroutineScope)
+                StudentsTab(
+                    yearId = yearId,
+                    viewModel = viewModel,
+                    snackbarHostState = snackbarHostState,
+                    coroutineScope = coroutineScope,
+                    onNavigateToMarksheet = onNavigateToMarksheet
+                )
             } else if (selectedTabIndex == 1) {
                 SubjectsTab(termId = termId, viewModel = viewModel)
             } else {
@@ -128,7 +136,13 @@ fun TermDetailScreen(
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun StudentsTab(yearId: Int, viewModel: MarksViewModel, snackbarHostState: SnackbarHostState, coroutineScope: kotlinx.coroutines.CoroutineScope) {
+fun StudentsTab(
+    yearId: Int,
+    viewModel: MarksViewModel,
+    snackbarHostState: SnackbarHostState,
+    coroutineScope: kotlinx.coroutines.CoroutineScope,
+    onNavigateToMarksheet: (Int) -> Unit
+) {
     val year by viewModel.getYearById(yearId).collectAsStateWithLifecycle(initialValue = null)
     val students by viewModel.getStudentsForYear(yearId).collectAsStateWithLifecycle(initialValue = emptyList())
     var showAddSheet by remember { mutableStateOf(false) }
@@ -136,8 +150,16 @@ fun StudentsTab(yearId: Int, viewModel: MarksViewModel, snackbarHostState: Snack
     var isSyncing by remember { mutableStateOf(false) }
     var pendingDeletions by remember { mutableStateOf<List<StudentEntity>>(emptyList()) }
     var incompleteEntries by remember { mutableStateOf<List<SheetsSyncService.RosterEntry>>(emptyList()) }
+    var searchQuery by remember { mutableStateOf("") }
 
     val hasSheet = year?.sheetId != null
+
+    val filteredStudents = remember(students, searchQuery) {
+        if (searchQuery.isBlank()) students
+        else students.filter {
+            it.name.contains(searchQuery, ignoreCase = true) || it.roll.toString().contains(searchQuery)
+        }
+    }
 
     fun runSync() {
         val sheetId = year?.sheetId ?: return
@@ -181,114 +203,153 @@ fun StudentsTab(yearId: Int, viewModel: MarksViewModel, snackbarHostState: Snack
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        if (students.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = androidx.compose.ui.Alignment.Center
-            ) {
-                Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "No students",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(48.dp)
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        text = "No students yet",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = if (hasSheet) "Tap sync to pull students from the linked Sheet" else "Import a CSV or tap + to add one",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
+    Column(modifier = Modifier.fillMaxSize()) {
+        if (students.isNotEmpty()) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Search by name or roll") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+        }
+
+        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            if (students.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = androidx.compose.ui.Alignment.Center
+                ) {
+                    Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "No students",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Text(
+                            text = "No students yet",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (hasSheet) "Tap sync to pull students from the linked Sheet" else "Import a CSV or tap + to add one",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
                 }
-            }
-        } else {
-            LazyColumn(
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(bottom = 80.dp)
-            ) {
-                if (incompleteEntries.isNotEmpty()) {
-                    item {
-                        Surface(
-                            color = MaterialTheme.colorScheme.errorContainer,
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Text(
-                                    "Skipped ${incompleteEntries.size} student(s) from the Sheet — missing religion, group, or optional subject",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onErrorContainer
-                                )
+            } else if (filteredStudents.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = androidx.compose.ui.Alignment.Center
+                ) {
+                    Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "No matches",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Text(
+                            text = "No matches",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Try a different name or roll number",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(bottom = 80.dp)
+                ) {
+                    if (incompleteEntries.isNotEmpty()) {
+                        item {
+                            Surface(
+                                color = MaterialTheme.colorScheme.errorContainer,
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text(
+                                        "Skipped ${incompleteEntries.size} student(s) from the Sheet — missing religion, group, or optional subject",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
                             }
                         }
                     }
-                }
-                items(students, key = { it.id }) { student ->
-                    SwipeToDeleteContainer(
-                        item = student,
-                        confirmTitle = "Delete student?",
-                        confirmMessage = "Delete ${student.name} (Roll ${student.roll})?",
-                        onDelete = { 
-                            coroutineScope.launch {
-                                viewModel.snapshotAndDeleteStudent(it)
-                                val result = snackbarHostState.showSnackbar("Student deleted", "Undo", duration = SnackbarDuration.Short)
-                                if (result == SnackbarResult.ActionPerformed) {
-                                    viewModel.undoLastDelete()
+                    items(filteredStudents, key = { it.id }) { student ->
+                        SwipeToDeleteContainer(
+                            item = student,
+                            confirmTitle = "Delete student?",
+                            confirmMessage = "Delete ${student.name} (Roll ${student.roll})?",
+                            onDelete = { 
+                                coroutineScope.launch {
+                                    viewModel.snapshotAndDeleteStudent(it)
+                                    val result = snackbarHostState.showSnackbar("Student deleted", "Undo", duration = SnackbarDuration.Short)
+                                    if (result == SnackbarResult.ActionPerformed) {
+                                        viewModel.undoLastDelete()
+                                    }
                                 }
                             }
-                        }
-                    ) {
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .combinedClickable(
-                                    onClick = {},
-                                    onLongClick = { studentToEdit = student }
-                                )
                         ) {
-                            Row(
-                                modifier = Modifier.padding(16.dp),
-                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .combinedClickable(
+                                        onClick = { onNavigateToMarksheet(student.id) },
+                                        onLongClick = { studentToEdit = student }
+                                    )
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .background(MaterialTheme.colorScheme.primaryContainer, androidx.compose.foundation.shape.CircleShape),
-                                    contentAlignment = androidx.compose.ui.Alignment.Center
+                                Row(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
                                 ) {
-                                    Text(
-                                        text = student.roll.toString(),
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        style = MaterialTheme.typography.labelLarge
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(16.dp))
-                                Column {
-                                    Text(
-                                        text = student.name,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)) {
-                                            Text(text = "Roll ${student.roll}", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp), color = MaterialTheme.colorScheme.onSecondaryContainer)
-                                        }
-                                        Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)) {
-                                            Text(text = student.group, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp), color = MaterialTheme.colorScheme.onSecondaryContainer)
-                                        }
-                                        if (student.religion.isNotBlank()) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .background(MaterialTheme.colorScheme.primaryContainer, androidx.compose.foundation.shape.CircleShape),
+                                        contentAlignment = androidx.compose.ui.Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = student.roll.toString(),
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            style = MaterialTheme.typography.labelLarge
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                    Column {
+                                        Text(
+                                            text = student.name,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                             Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)) {
-                                                Text(text = student.religion, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp), color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                                Text(text = "Roll ${student.roll}", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp), color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                            }
+                                            Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)) {
+                                                Text(text = student.group, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp), color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                            }
+                                            if (student.religion.isNotBlank()) {
+                                                Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)) {
+                                                    Text(text = student.religion, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp), color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                                }
                                             }
                                         }
                                     }
@@ -298,18 +359,18 @@ fun StudentsTab(yearId: Int, viewModel: MarksViewModel, snackbarHostState: Snack
                     }
                 }
             }
-        }
 
-        FloatingActionButton(
-            onClick = { if (hasSheet) runSync() else showAddSheet = true },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
-        ) {
-            if (isSyncing) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-            } else if (hasSheet) {
-                Icon(Icons.Default.Refresh, contentDescription = "Sync Roster")
-            } else {
-                Icon(Icons.Default.Add, contentDescription = "Add Student")
+            FloatingActionButton(
+                onClick = { if (hasSheet) runSync() else showAddSheet = true },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
+            ) {
+                if (isSyncing) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                } else if (hasSheet) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Sync Roster")
+                } else {
+                    Icon(Icons.Default.Add, contentDescription = "Add Student")
+                }
             }
         }
     }
@@ -576,8 +637,6 @@ fun MarksTab(termId: Int, viewModel: MarksViewModel, onNavigateToMarksEntry: (In
     }
 }
 
-// SwipeToDeleteContainer moved to its own file
-
 @Composable
 fun StudentForm(yearId: Int, initialStudent: StudentEntity?, onSubmit: (StudentEntity) -> Unit) {
     var name by remember { mutableStateOf(initialStudent?.name ?: "") }
@@ -635,8 +694,6 @@ fun StudentForm(yearId: Int, initialStudent: StudentEntity?, onSubmit: (StudentE
         Spacer(Modifier.height(32.dp))
     }
 }
-
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

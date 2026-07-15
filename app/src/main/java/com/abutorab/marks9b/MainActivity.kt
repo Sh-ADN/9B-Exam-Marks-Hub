@@ -129,7 +129,8 @@ class MainActivity : ComponentActivity() {
                     navController.navigate("marksEntry/$term/$subject")
                 },
                 onNavigateToTabulation = { tId -> navController.navigate("tabulation/$tId") },
-                onNavigateToDashboard = { tId -> navController.navigate("dashboard/$tId") }
+                onNavigateToDashboard = { tId -> navController.navigate("dashboard/$tId") },
+                onNavigateToMarksheet = { studentId -> navController.navigate("marksheet/$termId/$studentId") }
             )
           }
           composable(

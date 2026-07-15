@@ -28,6 +28,9 @@ jobs:
           gradle-version: '9.3.1'
           validate-wrappers: false
 
+      - name: Run Unit Tests
+        run: gradle test
+
       - name: Increment Version
         id: version
         run: |
