@@ -136,6 +136,11 @@ object TabulationEngine {
             val individualGPs = mutableListOf<Double>()
             var optionalBonusGP = 0.0
 
+            var bangla1Result: SubjectResult? = null
+            var bangla2Result: SubjectResult? = null
+            var eng1Result: SubjectResult? = null
+            var eng2Result: SubjectResult? = null
+
             for (subject in applicableSubjects) {
                 val mark = marks.find { it.studentId == student.id && it.subjectId == subject.id }
                 val total = (mark?.mcqMarks ?: 0) + (mark?.writtenMarks ?: 0) + (mark?.practicalMarks ?: 0)
@@ -152,16 +157,20 @@ object TabulationEngine {
                 val gp = gradePointFromLetter(lg)
 
                 if (lg == "F" && sheetRole != SheetRole.OPTIONAL) {
-                    failedCount++
+                    if (sheetRole != SheetRole.BANGLA1 && sheetRole != SheetRole.BANGLA2 && 
+                        sheetRole != SheetRole.ENG1 && sheetRole != SheetRole.ENG2) {
+                        failedCount++
+                    }
                 }
 
-                subjectResults.add(SubjectResult(subject, mark?.mcqMarks, mark?.writtenMarks, mark?.practicalMarks, total, lg, gp))
+                val res = SubjectResult(subject, mark?.mcqMarks, mark?.writtenMarks, mark?.practicalMarks, total, lg, gp)
+                subjectResults.add(res)
 
                 when (sheetRole) {
-                    SheetRole.BANGLA1 -> bangla1Total = total
-                    SheetRole.BANGLA2 -> bangla2Total = total
-                    SheetRole.ENG1 -> eng1Total = total
-                    SheetRole.ENG2 -> eng2Total = total
+                    SheetRole.BANGLA1 -> { bangla1Total = total; bangla1Result = res }
+                    SheetRole.BANGLA2 -> { bangla2Total = total; bangla2Result = res }
+                    SheetRole.ENG1 -> { eng1Total = total; eng1Result = res }
+                    SheetRole.ENG2 -> { eng2Total = total; eng2Result = res }
                     SheetRole.MATH,
                     SheetRole.RELIGION,
                     SheetRole.BGS_OR_SCIENCE,
@@ -178,8 +187,57 @@ object TabulationEngine {
                 }
             }
 
-            val banglaGP = combinedGP(bangla1Total + bangla2Total, 200)
-            val engGP = combinedGP(eng1Total + eng2Total, 200)
+            var banglaGP = 0.0
+            val hasBangla = bangla1Result != null || bangla2Result != null
+            if (hasBangla) {
+                val totalMcq = (bangla1Result?.mcqMarks ?: 0) + (bangla2Result?.mcqMarks ?: 0)
+                val totalWritten = (bangla1Result?.writtenMarks ?: 0) + (bangla2Result?.writtenMarks ?: 0)
+                val totalPractical = (bangla1Result?.practicalMarks ?: 0) + (bangla2Result?.practicalMarks ?: 0)
+                
+                val totalMaxMcq = (bangla1Result?.subject?.mcqMax ?: 0) + (bangla2Result?.subject?.mcqMax ?: 0)
+                val totalMaxWritten = (bangla1Result?.subject?.writtenMax ?: 0) + (bangla2Result?.subject?.writtenMax ?: 0)
+                val totalMaxPractical = (bangla1Result?.subject?.practicalMax ?: 0) + (bangla2Result?.subject?.practicalMax ?: 0)
+
+                val clearsComponents = passesCombinedMinimums(
+                    totalMcq, totalWritten, totalPractical,
+                    totalMaxMcq, totalMaxWritten, totalMaxPractical
+                )
+                
+                val rawGP = combinedGP(bangla1Total + bangla2Total, 200)
+                if (clearsComponents && rawGP > 0.0) {
+                    banglaGP = rawGP
+                }
+                
+                if (banglaGP == 0.0) {
+                    failedCount++
+                }
+            }
+
+            var engGP = 0.0
+            val hasEng = eng1Result != null || eng2Result != null
+            if (hasEng) {
+                val totalMcq = (eng1Result?.mcqMarks ?: 0) + (eng2Result?.mcqMarks ?: 0)
+                val totalWritten = (eng1Result?.writtenMarks ?: 0) + (eng2Result?.writtenMarks ?: 0)
+                val totalPractical = (eng1Result?.practicalMarks ?: 0) + (eng2Result?.practicalMarks ?: 0)
+                
+                val totalMaxMcq = (eng1Result?.subject?.mcqMax ?: 0) + (eng2Result?.subject?.mcqMax ?: 0)
+                val totalMaxWritten = (eng1Result?.subject?.writtenMax ?: 0) + (eng2Result?.subject?.writtenMax ?: 0)
+                val totalMaxPractical = (eng1Result?.subject?.practicalMax ?: 0) + (eng2Result?.subject?.practicalMax ?: 0)
+
+                val clearsComponents = passesCombinedMinimums(
+                    totalMcq, totalWritten, totalPractical,
+                    totalMaxMcq, totalMaxWritten, totalMaxPractical
+                )
+                
+                val rawGP = combinedGP(eng1Total + eng2Total, 200)
+                if (clearsComponents && rawGP > 0.0) {
+                    engGP = rawGP
+                }
+                
+                if (engGP == 0.0) {
+                    failedCount++
+                }
+            }
 
             val gpSum = individualGPs.sum() + banglaGP + engGP + optionalBonusGP
 
@@ -283,6 +341,46 @@ object TabulationEngine {
         return clears(mcqMarks, mcqMax) && clears(writtenMarks, writtenMax) && clears(practicalMarks, practicalMax)
     }
 
+    fun passesCombinedMinimums(
+        totalMcq: Int, totalWritten: Int, totalPractical: Int,
+        totalMaxMcq: Int, totalMaxWritten: Int, totalMaxPractical: Int
+    ): Boolean {
+        val componentCount = listOfNotNull(
+            if (totalMaxMcq > 0) totalMaxMcq else null,
+            if (totalMaxWritten > 0) totalMaxWritten else null,
+            if (totalMaxPractical > 0) totalMaxPractical else null
+        ).size
+        if (componentCount <= 1) return true
+
+        fun clears(mark: Int, max: Int): Boolean {
+            if (max == 0) return true
+            val threshold = round(max / 3.0).toInt()
+            return mark >= threshold
+        }
+
+        return clears(totalMcq, totalMaxMcq) && clears(totalWritten, totalMaxWritten) && clears(totalPractical, totalMaxPractical)
+    }
+
+    fun passesCombinedMinimumsDouble(
+        totalMcq: Double, totalWritten: Double, totalPractical: Double,
+        totalMaxMcq: Int, totalMaxWritten: Int, totalMaxPractical: Int
+    ): Boolean {
+        val componentCount = listOfNotNull(
+            if (totalMaxMcq > 0) totalMaxMcq else null,
+            if (totalMaxWritten > 0) totalMaxWritten else null,
+            if (totalMaxPractical > 0) totalMaxPractical else null
+        ).size
+        if (componentCount <= 1) return true
+
+        fun clears(mark: Double, max: Int): Boolean {
+            if (max == 0) return true
+            val threshold = round(max / 3.0).toInt()
+            return mark >= threshold
+        }
+
+        return clears(totalMcq, totalMaxMcq) && clears(totalWritten, totalMaxWritten) && clears(totalPractical, totalMaxPractical)
+    }
+
     fun combinedGPDouble(combined: Double, outOf: Int): Double {
         return when {
             combined >= 160 -> 5.0
@@ -325,6 +423,11 @@ object TabulationEngine {
 
             val individualGPs = mutableListOf<Double>()
             var optionalBonusGP = 0.0
+            
+            var bangla1Result: CombinedSubjectResult? = null
+            var bangla2Result: CombinedSubjectResult? = null
+            var eng1Result: CombinedSubjectResult? = null
+            var eng2Result: CombinedSubjectResult? = null
 
             for ((role, value) in slotKeys) {
                 val m = midSr.find { it.subject.sheetRole == role && it.subject.applicabilityValue == value }
@@ -347,19 +450,21 @@ object TabulationEngine {
                 val gp = gradePointFromLetter(lg)
 
                 if (lg == "F" && sheetRole != SheetRole.OPTIONAL) {
-                    failedCount++
+                    if (sheetRole != SheetRole.BANGLA1 && sheetRole != SheetRole.BANGLA2 && 
+                        sheetRole != SheetRole.ENG1 && sheetRole != SheetRole.ENG2) {
+                        failedCount++
+                    }
                 }
 
-                combinedSubjects.add(
-                    CombinedSubjectResult(role, value, referenceSubject.name, referenceSubject.fullMarks, cMcq, cWritten, cPractical, cTotal, lg, gp)
-                )
+                val res = CombinedSubjectResult(role, value, referenceSubject.name, referenceSubject.fullMarks, cMcq, cWritten, cPractical, cTotal, lg, gp)
+                combinedSubjects.add(res)
                 grandTotal += cTotal
 
                 when (sheetRole) {
-                    SheetRole.BANGLA1 -> bangla1Total = cTotal
-                    SheetRole.BANGLA2 -> bangla2Total = cTotal
-                    SheetRole.ENG1 -> eng1Total = cTotal
-                    SheetRole.ENG2 -> eng2Total = cTotal
+                    SheetRole.BANGLA1 -> { bangla1Total = cTotal; bangla1Result = res }
+                    SheetRole.BANGLA2 -> { bangla2Total = cTotal; bangla2Result = res }
+                    SheetRole.ENG1 -> { eng1Total = cTotal; eng1Result = res }
+                    SheetRole.ENG2 -> { eng2Total = cTotal; eng2Result = res }
                     SheetRole.MATH,
                     SheetRole.RELIGION,
                     SheetRole.BGS_OR_SCIENCE,
@@ -372,8 +477,64 @@ object TabulationEngine {
                 }
             }
 
-            val banglaGP = combinedGPDouble(bangla1Total + bangla2Total, 200)
-            val engGP = combinedGPDouble(eng1Total + eng2Total, 200)
+            var banglaGP = 0.0
+            val hasBangla = bangla1Result != null || bangla2Result != null
+            if (hasBangla) {
+                val b1Ref = midSr.find { it.subject.sheetRole == SheetRole.BANGLA1.name }?.subject ?: annSr.find { it.subject.sheetRole == SheetRole.BANGLA1.name }?.subject
+                val b2Ref = midSr.find { it.subject.sheetRole == SheetRole.BANGLA2.name }?.subject ?: annSr.find { it.subject.sheetRole == SheetRole.BANGLA2.name }?.subject
+                
+                val totalMcq = (bangla1Result?.mcqMarks ?: 0.0) + (bangla2Result?.mcqMarks ?: 0.0)
+                val totalWritten = (bangla1Result?.writtenMarks ?: 0.0) + (bangla2Result?.writtenMarks ?: 0.0)
+                val totalPractical = (bangla1Result?.practicalMarks ?: 0.0) + (bangla2Result?.practicalMarks ?: 0.0)
+                
+                val totalMaxMcq = (b1Ref?.mcqMax ?: 0) + (b2Ref?.mcqMax ?: 0)
+                val totalMaxWritten = (b1Ref?.writtenMax ?: 0) + (b2Ref?.writtenMax ?: 0)
+                val totalMaxPractical = (b1Ref?.practicalMax ?: 0) + (b2Ref?.practicalMax ?: 0)
+
+                val clearsComponents = passesCombinedMinimumsDouble(
+                    totalMcq, totalWritten, totalPractical,
+                    totalMaxMcq, totalMaxWritten, totalMaxPractical
+                )
+                
+                val rawGP = combinedGPDouble(bangla1Total + bangla2Total, 200)
+                if (clearsComponents && rawGP > 0.0) {
+                    banglaGP = rawGP
+                }
+                
+                if (banglaGP == 0.0) {
+                    failedCount++
+                }
+            }
+
+            var engGP = 0.0
+            val hasEng = eng1Result != null || eng2Result != null
+            if (hasEng) {
+                val e1Ref = midSr.find { it.subject.sheetRole == SheetRole.ENG1.name }?.subject ?: annSr.find { it.subject.sheetRole == SheetRole.ENG1.name }?.subject
+                val e2Ref = midSr.find { it.subject.sheetRole == SheetRole.ENG2.name }?.subject ?: annSr.find { it.subject.sheetRole == SheetRole.ENG2.name }?.subject
+                
+                val totalMcq = (eng1Result?.mcqMarks ?: 0.0) + (eng2Result?.mcqMarks ?: 0.0)
+                val totalWritten = (eng1Result?.writtenMarks ?: 0.0) + (eng2Result?.writtenMarks ?: 0.0)
+                val totalPractical = (eng1Result?.practicalMarks ?: 0.0) + (eng2Result?.practicalMarks ?: 0.0)
+                
+                val totalMaxMcq = (e1Ref?.mcqMax ?: 0) + (e2Ref?.mcqMax ?: 0)
+                val totalMaxWritten = (e1Ref?.writtenMax ?: 0) + (e2Ref?.writtenMax ?: 0)
+                val totalMaxPractical = (e1Ref?.practicalMax ?: 0) + (e2Ref?.practicalMax ?: 0)
+
+                val clearsComponents = passesCombinedMinimumsDouble(
+                    totalMcq, totalWritten, totalPractical,
+                    totalMaxMcq, totalMaxWritten, totalMaxPractical
+                )
+                
+                val rawGP = combinedGPDouble(eng1Total + eng2Total, 200)
+                if (clearsComponents && rawGP > 0.0) {
+                    engGP = rawGP
+                }
+                
+                if (engGP == 0.0) {
+                    failedCount++
+                }
+            }
+
             val gpSum = individualGPs.sum() + banglaGP + engGP + optionalBonusGP
 
             val gpa: Double? = if (grandTotal == 0.0) null else {
