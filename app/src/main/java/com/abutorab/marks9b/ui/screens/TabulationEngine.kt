@@ -147,7 +147,8 @@ object TabulationEngine {
                     SheetRole.NONE
                 }
 
-                val lg = letterGrade(total, subject.fullMarks, sheetRole)
+                val rawLg = letterGrade(total, subject.fullMarks, sheetRole)
+                val lg = if (rawLg.isNotEmpty() && !passesComponentMinimums(mark?.mcqMarks, mark?.writtenMarks, mark?.practicalMarks, subject.mcqMax, subject.writtenMax, subject.practicalMax)) "F" else rawLg
                 val gp = gradePointFromLetter(lg)
 
                 if (lg == "F" && sheetRole != SheetRole.OPTIONAL) {
@@ -250,6 +251,38 @@ object TabulationEngine {
         }
     }
 
+    fun passesComponentMinimums(
+        mcqMarks: Int?, writtenMarks: Int?, practicalMarks: Int?,
+        mcqMax: Int?, writtenMax: Int?, practicalMax: Int?
+    ): Boolean {
+        val componentCount = listOfNotNull(mcqMax, writtenMax, practicalMax).size
+        if (componentCount <= 1) return true
+
+        fun clears(mark: Int?, max: Int?): Boolean {
+            if (max == null) return true
+            val threshold = round(max / 3.0).toInt()
+            return (mark ?: 0) >= threshold
+        }
+
+        return clears(mcqMarks, mcqMax) && clears(writtenMarks, writtenMax) && clears(practicalMarks, practicalMax)
+    }
+
+    fun passesComponentMinimumsDouble(
+        mcqMarks: Double?, writtenMarks: Double?, practicalMarks: Double?,
+        mcqMax: Int?, writtenMax: Int?, practicalMax: Int?
+    ): Boolean {
+        val componentCount = listOfNotNull(mcqMax, writtenMax, practicalMax).size
+        if (componentCount <= 1) return true
+
+        fun clears(mark: Double?, max: Int?): Boolean {
+            if (max == null) return true
+            val threshold = round(max / 3.0).toInt()
+            return (mark ?: 0.0) >= threshold
+        }
+
+        return clears(mcqMarks, mcqMax) && clears(writtenMarks, writtenMax) && clears(practicalMarks, practicalMax)
+    }
+
     fun combinedGPDouble(combined: Double, outOf: Int): Double {
         return when {
             combined >= 160 -> 5.0
@@ -309,7 +342,8 @@ object TabulationEngine {
                 val cTotal = (cMcq ?: 0.0) + (cWritten ?: 0.0) + (cPractical ?: 0.0)
 
                 val sheetRole = try { SheetRole.valueOf(role) } catch (e: Exception) { SheetRole.NONE }
-                val lg = letterGradeDouble(cTotal, referenceSubject.fullMarks, sheetRole)
+                val rawLg = letterGradeDouble(cTotal, referenceSubject.fullMarks, sheetRole)
+                val lg = if (rawLg.isNotEmpty() && !passesComponentMinimumsDouble(cMcq, cWritten, cPractical, referenceSubject.mcqMax, referenceSubject.writtenMax, referenceSubject.practicalMax)) "F" else rawLg
                 val gp = gradePointFromLetter(lg)
 
                 if (lg == "F" && sheetRole != SheetRole.OPTIONAL) {
