@@ -63,7 +63,7 @@ object TabulationEngine {
                 total >= 30 -> "A-"
                 total >= 25 -> "B"
                 total >= 20 -> "C"
-                total >= 17 -> "D"
+                total >= 16 -> "D"
                 else -> "F"
             }
         } else {
@@ -289,7 +289,7 @@ object TabulationEngine {
                 total >= 30 -> "A-"
                 total >= 25 -> "B"
                 total >= 20 -> "C"
-                total >= 17 -> "D"
+                total >= 16 -> "D"
                 else -> "F"
             }
         } else {
