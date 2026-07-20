@@ -194,13 +194,11 @@ object TabulationEngine {
                 val totalWritten = (bangla1Result?.writtenMarks ?: 0) + (bangla2Result?.writtenMarks ?: 0)
                 val totalPractical = (bangla1Result?.practicalMarks ?: 0) + (bangla2Result?.practicalMarks ?: 0)
                 
-                val totalMaxMcq = (bangla1Result?.subject?.mcqMax ?: 0) + (bangla2Result?.subject?.mcqMax ?: 0)
-                val totalMaxWritten = (bangla1Result?.subject?.writtenMax ?: 0) + (bangla2Result?.subject?.writtenMax ?: 0)
-                val totalMaxPractical = (bangla1Result?.subject?.practicalMax ?: 0) + (bangla2Result?.subject?.practicalMax ?: 0)
-
                 val clearsComponents = passesCombinedMinimums(
                     totalMcq, totalWritten, totalPractical,
-                    totalMaxMcq, totalMaxWritten, totalMaxPractical
+                    bangla1Result?.subject?.mcqMax ?: 0, bangla2Result?.subject?.mcqMax ?: 0,
+                    bangla1Result?.subject?.writtenMax ?: 0, bangla2Result?.subject?.writtenMax ?: 0,
+                    bangla1Result?.subject?.practicalMax ?: 0, bangla2Result?.subject?.practicalMax ?: 0
                 )
                 
                 val rawGP = combinedGP(bangla1Total + bangla2Total, 200)
@@ -220,13 +218,11 @@ object TabulationEngine {
                 val totalWritten = (eng1Result?.writtenMarks ?: 0) + (eng2Result?.writtenMarks ?: 0)
                 val totalPractical = (eng1Result?.practicalMarks ?: 0) + (eng2Result?.practicalMarks ?: 0)
                 
-                val totalMaxMcq = (eng1Result?.subject?.mcqMax ?: 0) + (eng2Result?.subject?.mcqMax ?: 0)
-                val totalMaxWritten = (eng1Result?.subject?.writtenMax ?: 0) + (eng2Result?.subject?.writtenMax ?: 0)
-                val totalMaxPractical = (eng1Result?.subject?.practicalMax ?: 0) + (eng2Result?.subject?.practicalMax ?: 0)
-
                 val clearsComponents = passesCombinedMinimums(
                     totalMcq, totalWritten, totalPractical,
-                    totalMaxMcq, totalMaxWritten, totalMaxPractical
+                    eng1Result?.subject?.mcqMax ?: 0, eng2Result?.subject?.mcqMax ?: 0,
+                    eng1Result?.subject?.writtenMax ?: 0, eng2Result?.subject?.writtenMax ?: 0,
+                    eng1Result?.subject?.practicalMax ?: 0, eng2Result?.subject?.practicalMax ?: 0
                 )
                 
                 val rawGP = combinedGP(eng1Total + eng2Total, 200)
@@ -343,42 +339,38 @@ object TabulationEngine {
 
     fun passesCombinedMinimums(
         totalMcq: Int, totalWritten: Int, totalPractical: Int,
-        totalMaxMcq: Int, totalMaxWritten: Int, totalMaxPractical: Int
+        mcqMax1: Int, mcqMax2: Int, writtenMax1: Int, writtenMax2: Int, practicalMax1: Int, practicalMax2: Int
     ): Boolean {
-        val componentCount = listOfNotNull(
-            if (totalMaxMcq > 0) totalMaxMcq else null,
-            if (totalMaxWritten > 0) totalMaxWritten else null,
-            if (totalMaxPractical > 0) totalMaxPractical else null
-        ).size
-        if (componentCount <= 1) return true
+        val hasMultipleComponents = listOf(mcqMax1 + mcqMax2, writtenMax1 + writtenMax2, practicalMax1 + practicalMax2).count { it > 0 } > 1
+        if (!hasMultipleComponents) return true
 
-        fun clears(mark: Int, max: Int): Boolean {
-            if (max == 0) return true
-            val threshold = round(max / 3.0).toInt()
-            return mark >= threshold
+        fun threshold(max1: Int, max2: Int): Int {
+            val t1 = if (max1 > 0) round(max1 / 3.0).toInt() else 0
+            val t2 = if (max2 > 0) round(max2 / 3.0).toInt() else 0
+            return t1 + t2
         }
 
-        return clears(totalMcq, totalMaxMcq) && clears(totalWritten, totalMaxWritten) && clears(totalPractical, totalMaxPractical)
+        return totalMcq >= threshold(mcqMax1, mcqMax2) &&
+               totalWritten >= threshold(writtenMax1, writtenMax2) &&
+               totalPractical >= threshold(practicalMax1, practicalMax2)
     }
 
     fun passesCombinedMinimumsDouble(
         totalMcq: Double, totalWritten: Double, totalPractical: Double,
-        totalMaxMcq: Int, totalMaxWritten: Int, totalMaxPractical: Int
+        mcqMax1: Int, mcqMax2: Int, writtenMax1: Int, writtenMax2: Int, practicalMax1: Int, practicalMax2: Int
     ): Boolean {
-        val componentCount = listOfNotNull(
-            if (totalMaxMcq > 0) totalMaxMcq else null,
-            if (totalMaxWritten > 0) totalMaxWritten else null,
-            if (totalMaxPractical > 0) totalMaxPractical else null
-        ).size
-        if (componentCount <= 1) return true
+        val hasMultipleComponents = listOf(mcqMax1 + mcqMax2, writtenMax1 + writtenMax2, practicalMax1 + practicalMax2).count { it > 0 } > 1
+        if (!hasMultipleComponents) return true
 
-        fun clears(mark: Double, max: Int): Boolean {
-            if (max == 0) return true
-            val threshold = round(max / 3.0).toInt()
-            return mark >= threshold
+        fun threshold(max1: Int, max2: Int): Int {
+            val t1 = if (max1 > 0) round(max1 / 3.0).toInt() else 0
+            val t2 = if (max2 > 0) round(max2 / 3.0).toInt() else 0
+            return t1 + t2
         }
 
-        return clears(totalMcq, totalMaxMcq) && clears(totalWritten, totalMaxWritten) && clears(totalPractical, totalMaxPractical)
+        return totalMcq >= threshold(mcqMax1, mcqMax2) &&
+               totalWritten >= threshold(writtenMax1, writtenMax2) &&
+               totalPractical >= threshold(practicalMax1, practicalMax2)
     }
 
     fun combinedGPDouble(combined: Double, outOf: Int): Double {
@@ -487,13 +479,11 @@ object TabulationEngine {
                 val totalWritten = (bangla1Result?.writtenMarks ?: 0.0) + (bangla2Result?.writtenMarks ?: 0.0)
                 val totalPractical = (bangla1Result?.practicalMarks ?: 0.0) + (bangla2Result?.practicalMarks ?: 0.0)
                 
-                val totalMaxMcq = (b1Ref?.mcqMax ?: 0) + (b2Ref?.mcqMax ?: 0)
-                val totalMaxWritten = (b1Ref?.writtenMax ?: 0) + (b2Ref?.writtenMax ?: 0)
-                val totalMaxPractical = (b1Ref?.practicalMax ?: 0) + (b2Ref?.practicalMax ?: 0)
-
                 val clearsComponents = passesCombinedMinimumsDouble(
                     totalMcq, totalWritten, totalPractical,
-                    totalMaxMcq, totalMaxWritten, totalMaxPractical
+                    b1Ref?.mcqMax ?: 0, b2Ref?.mcqMax ?: 0,
+                    b1Ref?.writtenMax ?: 0, b2Ref?.writtenMax ?: 0,
+                    b1Ref?.practicalMax ?: 0, b2Ref?.practicalMax ?: 0
                 )
                 
                 val rawGP = combinedGPDouble(bangla1Total + bangla2Total, 200)
@@ -516,13 +506,11 @@ object TabulationEngine {
                 val totalWritten = (eng1Result?.writtenMarks ?: 0.0) + (eng2Result?.writtenMarks ?: 0.0)
                 val totalPractical = (eng1Result?.practicalMarks ?: 0.0) + (eng2Result?.practicalMarks ?: 0.0)
                 
-                val totalMaxMcq = (e1Ref?.mcqMax ?: 0) + (e2Ref?.mcqMax ?: 0)
-                val totalMaxWritten = (e1Ref?.writtenMax ?: 0) + (e2Ref?.writtenMax ?: 0)
-                val totalMaxPractical = (e1Ref?.practicalMax ?: 0) + (e2Ref?.practicalMax ?: 0)
-
                 val clearsComponents = passesCombinedMinimumsDouble(
                     totalMcq, totalWritten, totalPractical,
-                    totalMaxMcq, totalMaxWritten, totalMaxPractical
+                    e1Ref?.mcqMax ?: 0, e2Ref?.mcqMax ?: 0,
+                    e1Ref?.writtenMax ?: 0, e2Ref?.writtenMax ?: 0,
+                    e1Ref?.practicalMax ?: 0, e2Ref?.practicalMax ?: 0
                 )
                 
                 val rawGP = combinedGPDouble(eng1Total + eng2Total, 200)
