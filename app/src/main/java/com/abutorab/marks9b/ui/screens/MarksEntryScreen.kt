@@ -328,7 +328,6 @@ fun MarkEntryRow(
     }
 
     val errorFieldColors = OutlinedTextFieldDefaults.colors(
-        errorTextColor = FailRed,
         errorBorderColor = FailRed,
         errorLabelColor = FailRed,
         errorCursorColor = FailRed
