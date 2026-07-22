@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.Icon
 import androidx.compose.material3.FilledTonalButton
@@ -73,7 +74,10 @@ class MainActivity : ComponentActivity() {
     val repository = MarksRepository(db.yearDao(), db.termDao(), db.studentDao(), db.subjectDao(), db.markDao())
 
     setContent {
-      Marks9bTheme {
+      val systemTheme = androidx.compose.foundation.isSystemInDarkTheme()
+      var isDarkTheme by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(systemTheme) }
+
+      Marks9bTheme(darkTheme = isDarkTheme) {
         val viewModel: MarksViewModel = viewModel(factory = MarksViewModelFactory(application, repository))
         val navController = rememberNavController()
         NavHost(navController = navController, startDestination = "splash") {
@@ -87,6 +91,8 @@ class MainActivity : ComponentActivity() {
           composable("home") {
             HomeScreen(
                 viewModel = viewModel,
+                isDarkTheme = isDarkTheme,
+                onThemeToggle = { isDarkTheme = !isDarkTheme },
                 onNavigateToManage = { navController.navigate("yearList") },
                 onNavigateToTermDetail = { termId -> navController.navigate("termDetail/$termId") }
             )
@@ -234,6 +240,8 @@ fun SplashScreen(onNavigateToHome: () -> Unit) {
 @Composable
 fun HomeScreen(
     viewModel: MarksViewModel,
+    isDarkTheme: Boolean,
+    onThemeToggle: () -> Unit,
     onNavigateToManage: () -> Unit,
     onNavigateToTermDetail: (Int) -> Unit
 ) {
@@ -245,6 +253,12 @@ fun HomeScreen(
     topBar = {
       TopAppBar(
         title = { Text("9B Exam Marks Hub") },
+        actions = {
+            com.abutorab.marks9b.ui.components.ThemeToggleButton(
+                isDarkTheme = isDarkTheme,
+                onThemeToggle = onThemeToggle
+            )
+        },
         colors = TopAppBarDefaults.topAppBarColors(
           containerColor = MaterialTheme.colorScheme.primaryContainer,
           titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
