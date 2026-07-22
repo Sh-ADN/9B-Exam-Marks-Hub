@@ -5,8 +5,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -84,7 +88,34 @@ class MainActivity : ComponentActivity() {
         Marks9bTheme(darkTheme = isDarkTheme) {
           val viewModel: MarksViewModel = viewModel(factory = MarksViewModelFactory(application, repository))
           val navController = rememberNavController()
-          NavHost(navController = navController, startDestination = "splash") {
+          NavHost(
+              navController = navController, 
+              startDestination = "splash",
+              enterTransition = {
+                  scaleIn(
+                      initialScale = 0.9f,
+                      animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
+                  ) + fadeIn(animationSpec = tween(300))
+              },
+              exitTransition = {
+                  scaleOut(
+                      targetScale = 1.1f,
+                      animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
+                  ) + fadeOut(animationSpec = tween(300))
+              },
+              popEnterTransition = {
+                  scaleIn(
+                      initialScale = 1.1f,
+                      animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
+                  ) + fadeIn(animationSpec = tween(300))
+              },
+              popExitTransition = {
+                  scaleOut(
+                      targetScale = 0.9f,
+                      animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
+                  ) + fadeOut(animationSpec = tween(300))
+              }
+          ) {
             composable("splash") {
               SplashScreen(onNavigateToHome = {
                 navController.navigate("home") {
