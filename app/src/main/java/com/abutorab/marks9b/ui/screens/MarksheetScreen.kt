@@ -60,6 +60,7 @@ fun MarksheetScreen(termId: Int, studentId: Int, viewModel: MarksViewModel, onBa
         topBar = {
             TopAppBar(
                 title = { Text("Marksheet", style = MaterialTheme.typography.titleMedium) },
+                actions = { com.abutorab.marks9b.ui.components.ThemeToggleButton() },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")

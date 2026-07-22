@@ -143,6 +143,7 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 ),
                 actions = {
+                    com.abutorab.marks9b.ui.components.ThemeToggleButton()
                     val sheetId = currentYear.sheetId
                     if (isImporting) {
                         CircularProgressIndicator(modifier = Modifier.padding(16.dp).size(24.dp), strokeWidth = 2.dp)

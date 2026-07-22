@@ -34,6 +34,7 @@ fun DashboardScreen(termId: Int, viewModel: MarksViewModel, onBack: () -> Unit) 
         topBar = {
             TopAppBar(
                 title = { Text("Dashboard — ${currentTerm.label}", style = MaterialTheme.typography.titleMedium) },
+                actions = { com.abutorab.marks9b.ui.components.ThemeToggleButton() },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")

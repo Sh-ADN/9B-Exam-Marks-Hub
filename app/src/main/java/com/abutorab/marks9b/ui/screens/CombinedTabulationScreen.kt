@@ -84,6 +84,7 @@ fun CombinedTabulationScreen(yearId: Int, viewModel: MarksViewModel, onBack: () 
             Column {
                 TopAppBar(
                     title = { Text("সমন্বিত", style = MaterialTheme.typography.titleMedium) },
+                    actions = { com.abutorab.marks9b.ui.components.ThemeToggleButton() },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")

@@ -23,12 +23,16 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.unit.dp
 import kotlin.math.cos
 import kotlin.math.sin
+import androidx.compose.runtime.compositionLocalOf
+
+val LocalThemeIsDark = compositionLocalOf { false }
+val LocalThemeToggle = compositionLocalOf { {} }
 
 @Composable
 fun ThemeToggleButton(
-    isDarkTheme: Boolean,
-    onThemeToggle: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isDarkTheme: Boolean = LocalThemeIsDark.current,
+    onThemeToggle: () -> Unit = LocalThemeToggle.current
 ) {
     val interactionSource = remember { MutableInteractionSource() }
 

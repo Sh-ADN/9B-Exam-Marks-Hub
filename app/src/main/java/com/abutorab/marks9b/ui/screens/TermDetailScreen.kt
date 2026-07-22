@@ -81,6 +81,7 @@ fun TermDetailScreen(
                         titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                     ),
                     actions = {
+                        com.abutorab.marks9b.ui.components.ThemeToggleButton()
                         IconButton(onClick = { onNavigateToDashboard(termId) }) {
                             Icon(Icons.Default.Info, contentDescription = "View Dashboard")
                         }

@@ -77,26 +77,28 @@ class MainActivity : ComponentActivity() {
       val systemTheme = androidx.compose.foundation.isSystemInDarkTheme()
       var isDarkTheme by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(systemTheme) }
 
-      Marks9bTheme(darkTheme = isDarkTheme) {
-        val viewModel: MarksViewModel = viewModel(factory = MarksViewModelFactory(application, repository))
-        val navController = rememberNavController()
-        NavHost(navController = navController, startDestination = "splash") {
-          composable("splash") {
-            SplashScreen(onNavigateToHome = {
-              navController.navigate("home") {
-                popUpTo("splash") { inclusive = true }
-              }
-            })
-          }
-          composable("home") {
-            HomeScreen(
-                viewModel = viewModel,
-                isDarkTheme = isDarkTheme,
-                onThemeToggle = { isDarkTheme = !isDarkTheme },
-                onNavigateToManage = { navController.navigate("yearList") },
-                onNavigateToTermDetail = { termId -> navController.navigate("termDetail/$termId") }
-            )
-          }
+      androidx.compose.runtime.CompositionLocalProvider(
+          com.abutorab.marks9b.ui.components.LocalThemeIsDark provides isDarkTheme,
+          com.abutorab.marks9b.ui.components.LocalThemeToggle provides { isDarkTheme = !isDarkTheme }
+      ) {
+        Marks9bTheme(darkTheme = isDarkTheme) {
+          val viewModel: MarksViewModel = viewModel(factory = MarksViewModelFactory(application, repository))
+          val navController = rememberNavController()
+          NavHost(navController = navController, startDestination = "splash") {
+            composable("splash") {
+              SplashScreen(onNavigateToHome = {
+                navController.navigate("home") {
+                  popUpTo("splash") { inclusive = true }
+                }
+              })
+            }
+            composable("home") {
+              HomeScreen(
+                  viewModel = viewModel,
+                  onNavigateToManage = { navController.navigate("yearList") },
+                  onNavigateToTermDetail = { termId -> navController.navigate("termDetail/$termId") }
+              )
+            }
           composable("yearList") {
             YearListScreen(viewModel = viewModel, onNavigateToTerms = { yearId ->
               navController.navigate("termList/$yearId")
@@ -182,6 +184,7 @@ class MainActivity : ComponentActivity() {
           }
         }
       }
+      }
     }
   }
 }
@@ -240,8 +243,6 @@ fun SplashScreen(onNavigateToHome: () -> Unit) {
 @Composable
 fun HomeScreen(
     viewModel: MarksViewModel,
-    isDarkTheme: Boolean,
-    onThemeToggle: () -> Unit,
     onNavigateToManage: () -> Unit,
     onNavigateToTermDetail: (Int) -> Unit
 ) {
@@ -254,10 +255,7 @@ fun HomeScreen(
       TopAppBar(
         title = { Text("9B Exam Marks Hub") },
         actions = {
-            com.abutorab.marks9b.ui.components.ThemeToggleButton(
-                isDarkTheme = isDarkTheme,
-                onThemeToggle = onThemeToggle
-            )
+            com.abutorab.marks9b.ui.components.ThemeToggleButton()
         },
         colors = TopAppBarDefaults.topAppBarColors(
           containerColor = MaterialTheme.colorScheme.primaryContainer,
