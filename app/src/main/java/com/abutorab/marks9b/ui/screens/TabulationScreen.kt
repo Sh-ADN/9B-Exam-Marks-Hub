@@ -26,6 +26,8 @@ import com.abutorab.marks9b.data.local.entity.SheetRole
 import com.abutorab.marks9b.data.local.entity.SubjectEntity
 import com.abutorab.marks9b.ui.MarksViewModel
 
+private val FailRed = Color(0xFFE53935)
+
 private data class ColumnSlot(val sheetRole: String, val applicabilityValue: String?, val label: String, val width: Dp)
 
 private fun columnWidthFor(subjectsInGroup: List<SubjectEntity>): Dp {
@@ -143,16 +145,15 @@ fun TabulationScreen(termId: Int, viewModel: MarksViewModel, onNavigateToMarkshe
                                             (it.subject.sheetRole != SheetRole.BGS_OR_SCIENCE.name || it.subject.applicabilityValue == slot.applicabilityValue)
                                     }
                                     val text = TabulationDisplay.formatBreakdown(sr?.mcqMarks, sr?.writtenMarks, sr?.practicalMarks, sr?.total ?: 0)
-                                    val cellColor = if (sr?.letterGrade == "F") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                                    val cellColor = if (sr?.letterGrade == "F") FailRed else MaterialTheme.colorScheme.onSurface
                                     DataCell(text, slot.width, color = cellColor)
                                 }
-                                DataCell(result.grandTotal.toString(), 64.dp, fontWeight = FontWeight.Bold)
+                                DataCell(result.grandTotal.toString(), 64.dp)
                                 DataCell(result.gpa?.let { "%.2f".format(it) } ?: "-", 56.dp, color = MaterialTheme.colorScheme.tertiary)
                                 DataCell(
                                     result.letterGrade.ifEmpty { "-" },
                                     56.dp,
-                                    color = if (result.letterGrade == "F") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                                    fontWeight = FontWeight.Bold
+                                    color = if (result.letterGrade == "F") FailRed else MaterialTheme.colorScheme.onSurface
                                 )
                                 DataCell(result.position?.toString() ?: "-", 48.dp)
                             }
@@ -181,11 +182,11 @@ private fun HeaderCell(text: String, width: Dp, alignStart: Boolean = false) {
 }
 
 @Composable
-private fun DataCell(text: String, width: Dp, alignStart: Boolean = false, color: Color = MaterialTheme.colorScheme.onSurface, fontWeight: FontWeight = FontWeight.Normal) {
+private fun DataCell(text: String, width: Dp, alignStart: Boolean = false, color: Color = MaterialTheme.colorScheme.onSurface, fontWeight: FontWeight = FontWeight.Bold) {
     Box(modifier = Modifier.width(width).padding(horizontal = 4.dp), contentAlignment = if (alignStart) Alignment.CenterStart else Alignment.Center) {
         Text(
             text,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyLarge,
             color = color,
             fontWeight = fontWeight,
             maxLines = 1,
