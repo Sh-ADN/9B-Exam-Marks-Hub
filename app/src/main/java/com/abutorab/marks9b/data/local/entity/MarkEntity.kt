@@ -33,5 +33,6 @@ data class MarkEntity(
     val subjectId: Int,
     val mcqMarks: Int?,
     val writtenMarks: Int?,
-    val practicalMarks: Int?
+    val practicalMarks: Int?,
+    val isSynced: Boolean = true
 )

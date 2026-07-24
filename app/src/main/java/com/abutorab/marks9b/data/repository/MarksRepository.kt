@@ -38,4 +38,8 @@ class MarksRepository(
     suspend fun saveMark(mark: MarkEntity) {
         markDao.upsertMark(mark)
     }
+    
+    suspend fun saveMarks(marks: List<MarkEntity>) {
+        markDao.upsertMarks(marks)
+    }
 }

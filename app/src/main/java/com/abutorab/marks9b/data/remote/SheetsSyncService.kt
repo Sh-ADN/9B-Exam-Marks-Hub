@@ -15,55 +15,70 @@ object SheetsSyncService {
     data class ExportEntry(
         val roll: Int,
         val name: String,
-        val values: List<Int>
+        val values: List<Any>
     )
 
-    suspend fun exportSubjectMarks(sheetId: String, tabName: String, startColumn: Int = 3, entries: List<ExportEntry>): Result<Int> = withContext(Dispatchers.IO) {
+    suspend fun exportSubjectMarks(
+        sheetId: String, 
+        tabName: String, 
+        startColumn: Int = 3, 
+        entries: List<ExportEntry>,
+        onProgress: ((Int, Int) -> Unit)? = null
+    ): Result<Int> = withContext(Dispatchers.IO) {
         try {
-            val url = URL(ENDPOINT)
-            val connection = url.openConnection() as HttpURLConnection
-            connection.requestMethod = "POST"
-            connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-            connection.doOutput = true
+            var processedCount = 0
+            val totalCount = entries.size
+            val chunks = entries.chunked(1)
 
-            val entriesArray = JSONArray()
-            entries.forEach { entry ->
-                val entryObj = JSONObject()
-                entryObj.put("roll", entry.roll)
-                entryObj.put("name", entry.name)
-                val valuesArray = JSONArray()
-                entry.values.forEach { valuesArray.put(it) }
-                entryObj.put("values", valuesArray)
-                entriesArray.put(entryObj)
-            }
+            for (chunk in chunks) {
+                val url = URL(ENDPOINT)
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "POST"
+                connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                connection.doOutput = true
 
-            val requestJson = JSONObject()
-            requestJson.put("secret", BuildConfig.SHEETS_SYNC_SECRET)
-            requestJson.put("spreadsheetId", sheetId)
-            requestJson.put("inputTabName", tabName)
-            requestJson.put("startColumn", startColumn)
-            requestJson.put("entries", entriesArray)
-
-            OutputStreamWriter(connection.outputStream, "UTF-8").use { writer ->
-                writer.write(requestJson.toString())
-                writer.flush()
-            }
-
-            val responseCode = connection.responseCode
-            if (responseCode == HttpURLConnection.HTTP_OK || responseCode == HttpURLConnection.HTTP_MOVED_TEMP || responseCode == HttpURLConnection.HTTP_MOVED_PERM) {
-                // Read response
-                val inputStream = if (responseCode >= 400) connection.errorStream else connection.inputStream
-                val responseText = inputStream.bufferedReader().use { it.readText() }
-                val responseJson = JSONObject(responseText)
-                
-                if (responseJson.optString("status") == "success") {
-                    Result.success(entries.size)
-                } else {
-                    Result.failure(Exception(responseJson.optString("message", "Unknown error from script")))
+                val entriesArray = JSONArray()
+                chunk.forEach { entry ->
+                    val entryObj = JSONObject()
+                    entryObj.put("roll", entry.roll)
+                    entryObj.put("name", entry.name)
+                    val valuesArray = JSONArray()
+                    entry.values.forEach { valuesArray.put(it) }
+                    entryObj.put("values", valuesArray)
+                    entriesArray.put(entryObj)
                 }
-            } else {
-                Result.failure(Exception("HTTP error code: $responseCode"))
+
+                val requestJson = JSONObject()
+                requestJson.put("secret", BuildConfig.SHEETS_SYNC_SECRET)
+                requestJson.put("spreadsheetId", sheetId)
+                requestJson.put("inputTabName", tabName)
+                requestJson.put("startColumn", startColumn)
+                requestJson.put("entries", entriesArray)
+
+                OutputStreamWriter(connection.outputStream, "UTF-8").use { writer ->
+                    writer.write(requestJson.toString())
+                    writer.flush()
+                }
+
+                val responseCode = connection.responseCode
+                if (responseCode == HttpURLConnection.HTTP_OK || responseCode == HttpURLConnection.HTTP_MOVED_TEMP || responseCode == HttpURLConnection.HTTP_MOVED_PERM) {
+                    val inputStream = if (responseCode >= 400) connection.errorStream else connection.inputStream
+                    val responseText = inputStream.bufferedReader().use { it.readText() }
+                    val responseJson = JSONObject(responseText)
+                    
+                    if (responseJson.optString("status") == "success") {
+                        processedCount += chunk.size
+                        withContext(Dispatchers.Main) {
+                            onProgress?.invoke(processedCount, totalCount)
+                        }
+                    } else {
+                        return@withContext Result.failure(Exception(responseJson.optString("message", "Unknown error from script")))
+                    }
+                } else {
+                    return@withContext Result.failure(Exception("HTTP error code: $responseCode"))
+                }
             }
+            Result.success(processedCount)
         } catch (e: Exception) {
             Result.failure(e)
         }

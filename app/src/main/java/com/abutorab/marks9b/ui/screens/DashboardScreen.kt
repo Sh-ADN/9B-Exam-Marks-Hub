@@ -2,6 +2,10 @@ package com.abutorab.marks9b.ui.screens
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.max
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -186,24 +190,41 @@ private fun MarksLineChart(data: List<Pair<Int, Int>>, lineColor: Color) {
     if (data.isEmpty()) return
     val maxTotal = (data.maxOfOrNull { it.second } ?: 1).coerceAtLeast(1)
 
-    Canvas(modifier = Modifier.fillMaxWidth().height(180.dp)) {
-        val stepX = if (data.size > 1) size.width / (data.size - 1) else 0f
-        val points = data.mapIndexed { index, (_, total) ->
-            val x = index * stepX
-            val y = size.height - (total.toFloat() / maxTotal.toFloat()) * size.height
-            Offset(x, y)
-        }
-        for (i in 0 until points.size - 1) {
-            drawLine(color = lineColor, start = points[i], end = points[i + 1], strokeWidth = 4f)
-        }
-        points.forEach { point ->
-            drawCircle(color = lineColor, radius = 6f, center = point)
-        }
-    }
-    Spacer(Modifier.height(4.dp))
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        data.forEach { (roll, _) ->
-            Text(roll.toString(), style = MaterialTheme.typography.labelSmall, color = labelColor)
+    val itemWidth = 36.dp
+    val totalWidth = itemWidth * data.size
+    val screenWidth = LocalConfiguration.current.screenWidthDp.dp - 32.dp
+    val chartWidth = max(totalWidth, screenWidth)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+    ) {
+        Column(modifier = Modifier.width(chartWidth)) {
+            Canvas(modifier = Modifier.fillMaxWidth().height(180.dp)) {
+                val stepX = if (data.size > 1) size.width / (data.size - 1) else 0f
+                val points = data.mapIndexed { index, (_, total) ->
+                    val x = index * stepX
+                    val y = size.height - (total.toFloat() / maxTotal.toFloat()) * size.height
+                    Offset(x, y)
+                }
+                for (i in 0 until points.size - 1) {
+                    drawLine(color = lineColor, start = points[i], end = points[i + 1], strokeWidth = 4f)
+                }
+                points.forEach { point ->
+                    drawCircle(color = lineColor, radius = 6f, center = point)
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                data.forEach { (roll, _) ->
+                    Text(
+                        text = roll.toString(), 
+                        style = MaterialTheme.typography.labelSmall, 
+                        color = labelColor,
+                    )
+                }
+            }
         }
     }
 }

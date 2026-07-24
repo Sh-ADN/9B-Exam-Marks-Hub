@@ -20,6 +20,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Delete
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -64,8 +66,11 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     var isExporting by remember { mutableStateOf(false) }
+    var exportProgress by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     var isImporting by remember { mutableStateOf(false) }
     var hasAutoImported by remember(subjectId) { mutableStateOf(false) }
+    var showClearConfirmDialog by remember { mutableStateOf(false) }
+    var previousMarksSnapshot by remember { mutableStateOf<List<MarkEntity>?>(null) }
 
     fun performImport(showFeedback: Boolean) {
         val sheetId = currentYear.sheetId ?: return
@@ -110,7 +115,8 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
                                     subjectId = subjectId,
                                     mcqMarks = newMcq,
                                     writtenMarks = newWritten,
-                                    practicalMarks = newPractical
+                                    practicalMarks = newPractical,
+                                    isSynced = true
                                 )
                             )
                             updatedCount++
@@ -133,6 +139,50 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
         }
     }
 
+    if (showClearConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirmDialog = false },
+            title = { Text("Clear All Marks") },
+            text = { Text("Are you sure you want to clear all marks for this subject? This will also remove the marks from the linked Google Sheet on next export.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showClearConfirmDialog = false
+                        previousMarksSnapshot = marks.map { it.copy() }
+                        val clearedMarks = marks.map { it.copy(mcqMarks = null, writtenMarks = null, practicalMarks = null, isSynced = false) }
+                        viewModel.saveMarks(clearedMarks)
+                        
+                        coroutineScope.launch {
+                            val snackbarJob = launch {
+                                val result = snackbarHostState.showSnackbar(
+                                    message = "All marks cleared.",
+                                    actionLabel = "Undo",
+                                    duration = SnackbarDuration.Indefinite
+                                )
+                                if (result == SnackbarResult.ActionPerformed) {
+                                    previousMarksSnapshot?.let { 
+                                        viewModel.saveMarks(it) 
+                                    }
+                                }
+                                previousMarksSnapshot = null
+                            }
+                            delay(8000)
+                            snackbarJob.cancel()
+                            snackbarHostState.currentSnackbarData?.dismiss()
+                        }
+                    }
+                ) {
+                    Text("Clear")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearConfirmDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
@@ -143,6 +193,12 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 ),
                 actions = {
+                    IconButton(
+                        onClick = { showClearConfirmDialog = true },
+                        enabled = filteredStudents.isNotEmpty()
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = "Clear All Marks")
+                    }
                     com.abutorab.marks9b.ui.components.ThemeToggleButton()
                     val sheetId = currentYear.sheetId
                     if (isImporting) {
@@ -156,21 +212,48 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
                         }
                     }
                     if (isExporting) {
-                        CircularProgressIndicator(modifier = Modifier.padding(16.dp).size(24.dp))
+                        val progress = exportProgress
+                        if (progress != null) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically, 
+                                modifier = Modifier.padding(end = 16.dp)
+                            ) {
+                                CircularProgressIndicator(
+                                    progress = if (progress.second > 0) progress.first.toFloat() / progress.second.toFloat() else 0f,
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "${progress.first}/${progress.second}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        } else {
+                            CircularProgressIndicator(modifier = Modifier.padding(16.dp).size(24.dp), strokeWidth = 2.dp)
+                        }
                     } else {
                         Button(
                             onClick = {
                                 if (sheetId != null) {
-                                    isExporting = true
                                     coroutineScope.launch {
+                                        val unsyncedMarks = marks.filter { !it.isSynced }
+                                        if (unsyncedMarks.isEmpty()) {
+                                            snackbarHostState.showSnackbar("No new changes to export.")
+                                            return@launch
+                                        }
+
+                                        isExporting = true
+
                                         val entries = filteredStudents.mapNotNull { student ->
-                                            val mark = marks.find { it.studentId == student.id }
+                                            val mark = unsyncedMarks.find { it.studentId == student.id }
                                             if (mark == null) null
                                             else {
-                                                val values = mutableListOf<Int>()
-                                                if (subject.mcqMax != null) values.add(mark.mcqMarks ?: 0)
-                                                if (subject.writtenMax != null) values.add(mark.writtenMarks ?: 0)
-                                                if (subject.practicalMax != null) values.add(mark.practicalMarks ?: 0)
+                                                val values = mutableListOf<Any>()
+                                                if (subject.mcqMax != null) values.add(mark.mcqMarks ?: "")
+                                                if (subject.writtenMax != null) values.add(mark.writtenMarks ?: "")
+                                                if (subject.practicalMax != null) values.add(mark.practicalMarks ?: "")
                                                 SheetsSyncService.ExportEntry(student.roll, student.name, values)
                                             }
                                         }
@@ -186,9 +269,16 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
                                             3 + componentCount
                                         }
                                         
-                                        val result = SheetsSyncService.exportSubjectMarks(sheetId, subject.sheetTabName, startColumn, entries)
+                                        exportProgress = Pair(0, entries.size)
+                                        val result = SheetsSyncService.exportSubjectMarks(sheetId, subject.sheetTabName, startColumn, entries) { current, total ->
+                                            exportProgress = Pair(current, total)
+                                        }
                                         isExporting = false
+                                        exportProgress = null
                                         if (result.isSuccess) {
+                                            unsyncedMarks.forEach { mark ->
+                                                viewModel.saveMark(mark.copy(isSynced = true))
+                                            }
                                             snackbarHostState.showSnackbar("Exported ${result.getOrNull()} students successfully")
                                         } else {
                                             snackbarHostState.showSnackbar(result.exceptionOrNull()?.message ?: "Export failed")
@@ -267,7 +357,8 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
                                         subjectId = subjectId,
                                         mcqMarks = mcq,
                                         writtenMarks = written,
-                                        practicalMarks = practical
+                                        practicalMarks = practical,
+                                        isSynced = false
                                     )
                                 )
                             }

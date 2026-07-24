@@ -96,6 +96,10 @@ class MarksViewModel(
         repository.saveMark(mark) 
     }
 
+    fun saveMarks(marks: List<MarkEntity>) = viewModelScope.launch {
+        repository.saveMarks(marks)
+    }
+
     fun importStudentsFromCsv(yearId: Int, uri: android.net.Uri, context: android.content.Context) = viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
         try {
             context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { reader ->

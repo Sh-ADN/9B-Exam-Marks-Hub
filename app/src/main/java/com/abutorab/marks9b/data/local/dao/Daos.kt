@@ -80,4 +80,7 @@ interface MarkDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertMark(mark: MarkEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertMarks(marks: List<MarkEntity>)
 }
