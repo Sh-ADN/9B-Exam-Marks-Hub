@@ -56,7 +56,9 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           SHEETS_SYNC_SECRET: ${{ secrets.SHEETS_SYNC_SECRET }}
-        run: gradle assembleRelease
+        run: |
+          gradle assembleRelease
+          mv app/build/outputs/apk/release/*.apk "app/build/outputs/apk/release/9B Exam Marks Hub v${{ steps.version.outputs.version_name }}.apk"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
