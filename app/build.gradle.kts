@@ -30,6 +30,10 @@ android {
     buildConfigField("String", "SHEETS_SYNC_SECRET", "\"" + (System.getenv("SHEETS_SYNC_SECRET") ?: "") + "\"")
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    
+    ndk {
+      abiFilters.add("arm64-v8a")
+    }
   }
 
   signingConfigs {
@@ -67,14 +71,6 @@ android {
   buildFeatures {
     compose = true
     buildConfig = true
-  }
-  splits {
-    abi {
-      isEnable = true
-      reset()
-      include("armeabi-v7a", "arm64-v8a")
-      isUniversalApk = false
-    }
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
 }

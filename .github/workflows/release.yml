@@ -34,39 +34,14 @@ jobs:
       - name: Increment Version
         id: version
         run: |
-          if [ ! -f version.properties ]; then
-            echo "VERSION_CODE=0" > version.properties
-            echo "VERSION_NAME=1.0" >> version.properties
-          fi
-          
-          # Read current values
-          V_CODE=$(grep VERSION_CODE version.properties | cut -d'=' -f2)
-          V_NAME=$(grep VERSION_NAME version.properties | cut -d'=' -f2)
-          
-          # Increment Code
-          NEW_CODE=$((V_CODE + 1))
-          
-          # Increment Name (e.g. 1.0 -> 1.1 -> 1.2 ... -> 1.9 -> 2.0)
-          MAJOR=$(echo $V_NAME | cut -d'.' -f1)
-          MINOR=$(echo $V_NAME | cut -d'.' -f2)
-          NEW_MINOR=$((MINOR + 1))
-          if [ $NEW_MINOR -ge 10 ]; then
-            MAJOR=$((MAJOR + 1))
-            NEW_MINOR=0
-          fi
-          NEW_NAME="$MAJOR.$NEW_MINOR"
+          NEW_CODE=${{ github.run_number }}
+          NEW_NAME="1.${{ github.run_number }}"
           
           echo "VERSION_CODE=$NEW_CODE" > version.properties
           echo "VERSION_NAME=$NEW_NAME" >> version.properties
           
           echo "version_code=$NEW_CODE" >> $GITHUB_OUTPUT
           echo "version_name=$NEW_NAME" >> $GITHUB_OUTPUT
-          
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add version.properties
-          git commit -m "Bump version to $NEW_NAME ($NEW_CODE) [skip ci]" || echo "No changes to commit"
-          git push origin HEAD:${{ github.ref_name }}
 
       - name: Decode Keystore
         env:
