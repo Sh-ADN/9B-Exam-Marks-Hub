@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.gestures.transformable
+import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,6 +21,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.times
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.abutorab.marks9b.data.local.entity.MarkEntity
@@ -68,6 +72,7 @@ private fun VerificationSheetContent(
     // Bengali by default since that's how the physical sheet itself is printed.
     var useBengali by remember { mutableStateOf(true) }
     var showTotal by remember { mutableStateOf(true) }
+    var scale by remember { mutableFloatStateOf(1.2f) }
 
     val rolls = remember(students) { students.sortedBy { it.roll } }
     val marksByStudent = remember(marks) { marks.associateBy { it.studentId } }
@@ -87,6 +92,12 @@ private fun VerificationSheetContent(
                     }
                 },
                 actions = { 
+                    TextButton(onClick = { scale = (scale - 0.2f).coerceAtLeast(0.6f) }) {
+                        Text("-", style = MaterialTheme.typography.titleLarge)
+                    }
+                    TextButton(onClick = { scale = (scale + 0.2f).coerceAtMost(4f) }) {
+                        Text("+", style = MaterialTheme.typography.titleLarge)
+                    }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Total", style = MaterialTheme.typography.labelMedium)
                         Switch(checked = showTotal, onCheckedChange = { showTotal = it }, modifier = Modifier.padding(horizontal = 6.dp))
@@ -109,11 +120,20 @@ private fun VerificationSheetContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp, bottom = 12.dp)
             )
-            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .transformable(
+                        state = rememberTransformableState { zoomChange, _, _ ->
+                            scale = (scale * zoomChange).coerceIn(0.6f, 4f)
+                        }
+                    )
+            ) {
                 val hScroll = rememberScrollState()
                 val vScroll = rememberScrollState()
-                Box(modifier = Modifier.horizontalScroll(hScroll).verticalScroll(vScroll).padding(bottom = 16.dp)) {
-                    LedgerGrid(rolls, marksByStudent, useBengali, showTotal)
+                Box(modifier = Modifier.fillMaxSize().horizontalScroll(hScroll).verticalScroll(vScroll).padding(bottom = 16.dp)) {
+                    LedgerGrid(students, marksByStudent, useBengali, showTotal, scale)
                 }
             }
         }
@@ -176,30 +196,37 @@ private fun SheetHeader(year: YearEntity, term: TermEntity, subject: SubjectEnti
 }
 
 @Composable
-private fun LedgerGrid(students: List<StudentEntity>, marksByStudent: Map<Int, MarkEntity>, useBengali: Boolean, showTotal: Boolean) {
-    val columns = if (students.isEmpty()) emptyList() else students.chunked(ROWS_PER_COLUMN)
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-        columns.forEach { columnStudents ->
-            LedgerColumn(columnStudents, marksByStudent, useBengali, showTotal)
+private fun LedgerGrid(students: List<StudentEntity>, marksByStudent: Map<Int, MarkEntity>, useBengali: Boolean, showTotal: Boolean, scale: Float) {
+    val allRolls = (1..150).toList()
+    val columns = allRolls.chunked(ROWS_PER_COLUMN)
+    val studentByRoll = remember(students) { students.associateBy { it.roll } }
+    
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp * scale), modifier = Modifier.padding(horizontal = 16.dp * scale, vertical = 4.dp * scale)) {
+        columns.forEach { columnRolls ->
+            LedgerColumn(columnRolls, studentByRoll, marksByStudent, useBengali, showTotal, scale)
         }
     }
 }
 
 @Composable
-private fun LedgerColumn(students: List<StudentEntity>, marksByStudent: Map<Int, MarkEntity>, useBengali: Boolean, showTotal: Boolean) {
+private fun LedgerColumn(rolls: List<Int>, studentByRoll: Map<Int, StudentEntity>, marksByStudent: Map<Int, MarkEntity>, useBengali: Boolean, showTotal: Boolean, scale: Float) {
     val outline = MaterialTheme.colorScheme.outline
-    Column(modifier = Modifier.border(1.dp, outline)) {
+    val rollColWidth = 52.dp * scale
+    val marksColWidth = 180.dp * scale
+    
+    Column(modifier = Modifier.border(1.dp * scale, outline)) {
         Row(
             modifier = Modifier.height(IntrinsicSize.Min).background(MaterialTheme.colorScheme.surfaceContainerHigh),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            LedgerCell("রোল\nনং", ROLL_COL_WIDTH, header = true)
-            VDivider(outline)
-            LedgerCell("প্রাপ্ত নম্বর\nনৈঃ+রঃ+ব্যবঃ = মোট", MARKS_COL_WIDTH, header = true)
+            LedgerCell("রোল\nনং", rollColWidth, scale, header = true)
+            VDivider(outline, scale)
+            LedgerCell("প্রাপ্ত নম্বর\nনৈঃ+রঃ+ব্যবঃ = মোট", marksColWidth, scale, header = true)
         }
-        HorizontalDivider(color = outline)
-        students.forEachIndexed { idx, student ->
-            val mark = marksByStudent[student.id]
+        HorizontalDivider(color = outline, thickness = 1.dp * scale)
+        rolls.forEachIndexed { idx, roll ->
+            val student = studentByRoll[roll]
+            val mark = if (student != null) marksByStudent[student.id] else null
             val total = (mark?.mcqMarks ?: 0) + (mark?.writtenMarks ?: 0) + (mark?.practicalMarks ?: 0)
             val rawBreakdown = TabulationDisplay.formatBreakdown(mark?.mcqMarks, mark?.writtenMarks, mark?.practicalMarks, total)
             var breakdown = if (rawBreakdown == "-") "" else rawBreakdown
@@ -208,30 +235,32 @@ private fun LedgerColumn(students: List<StudentEntity>, marksByStudent: Map<Int,
             }
 
             Row(modifier = Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
-                LedgerCell(NumeralFormat.localize(student.roll.toString(), true), ROLL_COL_WIDTH)
-                VDivider(outline)
-                LedgerCell(NumeralFormat.localize(breakdown, useBengali), MARKS_COL_WIDTH, alignStart = true)
+                LedgerCell(NumeralFormat.localize(roll.toString(), true), rollColWidth, scale)
+                VDivider(outline, scale)
+                LedgerCell(NumeralFormat.localize(breakdown, useBengali), marksColWidth, scale, alignStart = true)
             }
-            if (idx < students.lastIndex) HorizontalDivider(color = outline)
+            if (idx < rolls.lastIndex) HorizontalDivider(color = outline, thickness = 1.dp * scale)
         }
     }
 }
 
 @Composable
-private fun VDivider(color: Color) {
-    Box(modifier = Modifier.width(1.dp).fillMaxHeight().background(color))
+private fun VDivider(color: Color, scale: Float) {
+    Box(modifier = Modifier.width(1.dp * scale).fillMaxHeight().background(color))
 }
 
 @Composable
-private fun LedgerCell(text: String, width: Dp, header: Boolean = false, alignStart: Boolean = false) {
+private fun LedgerCell(text: String, width: Dp, scale: Float, header: Boolean = false, alignStart: Boolean = false) {
     Box(
-        modifier = Modifier.width(width).padding(horizontal = 8.dp, vertical = 8.dp),
+        modifier = Modifier.width(width).padding(horizontal = 8.dp * scale, vertical = 8.dp * scale),
         contentAlignment = if (alignStart) Alignment.CenterStart else Alignment.Center
     ) {
         Text(
             text = text,
-            style = if (header) MaterialTheme.typography.labelSmall else MaterialTheme.typography.bodyMedium,
-            fontWeight = if (header) FontWeight.Bold else FontWeight.Normal,
+            style = if (header) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
+            fontSize = if (header) 14.sp * scale else 18.sp * scale,
+            lineHeight = if (header) 18.sp * scale else 24.sp * scale,
+            fontWeight = FontWeight.Bold,
             textAlign = if (alignStart) TextAlign.Start else TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurface
         )
