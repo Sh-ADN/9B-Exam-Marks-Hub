@@ -47,7 +47,8 @@ fun TermDetailScreen(
     onNavigateToMarksEntry: (Int, Int) -> Unit,
     onNavigateToTabulation: (Int) -> Unit,
     onNavigateToDashboard: (Int) -> Unit,
-    onNavigateToMarksheet: (Int) -> Unit
+    onNavigateToMarksheet: (Int) -> Unit,
+    onNavigateToMeritList: (Int) -> Unit
 ) {
     val context = LocalContext.current
     LaunchedEffect(termId) {
@@ -87,6 +88,9 @@ fun TermDetailScreen(
                         }
                         IconButton(onClick = { onNavigateToTabulation(termId) }) {
                             Icon(Icons.Default.DateRange, contentDescription = "View Tabulation")
+                        }
+                        IconButton(onClick = { onNavigateToMeritList(termId) }) {
+                            Icon(Icons.Default.List, contentDescription = "View Merit List")
                         }
                         if (selectedTabIndex == 0 && year?.sheetId == null) {
                             var showMenu by remember { mutableStateOf(false) }

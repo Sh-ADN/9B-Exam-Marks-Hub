@@ -24,7 +24,7 @@ import com.abutorab.marks9b.ui.MarksViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DashboardScreen(termId: Int, viewModel: MarksViewModel, onBack: () -> Unit) {
+fun DashboardScreen(termId: Int, viewModel: MarksViewModel, onBack: () -> Unit, onNavigateToMeritList: (Int) -> Unit) {
     val term by viewModel.getTermById(termId).collectAsStateWithLifecycle(initialValue = null)
     val currentTerm = term ?: return
     val students by viewModel.getStudentsForYear(currentTerm.yearId).collectAsStateWithLifecycle(initialValue = emptyList())
@@ -139,6 +139,14 @@ fun DashboardScreen(termId: Int, viewModel: MarksViewModel, onBack: () -> Unit) 
                 item { SectionLabel("Ranking & Merit") }
                 item { LeaderboardTable("Top 10 Students", stats.rankedStudents.take(10), showFailedInstead = false) }
                 item { LeaderboardTable("Bottom 10 Students", stats.rankedStudents.takeLast(10).reversed(), showFailedInstead = true) }
+                item { 
+                    FilledTonalButton(
+                        onClick = { onNavigateToMeritList(termId) },
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                    ) {
+                        Text("View Full Merit List & Toppers")
+                    }
+                }
             }
         }
     }

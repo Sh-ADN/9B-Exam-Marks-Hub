@@ -66,6 +66,7 @@ import com.abutorab.marks9b.ui.screens.TermDetailScreen
 import com.abutorab.marks9b.ui.screens.TermListScreen
 import com.abutorab.marks9b.ui.screens.YearListScreen
 import com.abutorab.marks9b.ui.screens.MarksEntryScreen
+import com.abutorab.marks9b.ui.screens.MeritListScreen
 import com.abutorab.marks9b.ui.theme.Marks9bTheme
 import kotlinx.coroutines.delay
 
@@ -169,7 +170,8 @@ class MainActivity : ComponentActivity() {
                 },
                 onNavigateToTabulation = { tId -> navController.navigate("tabulation/$tId") },
                 onNavigateToDashboard = { tId -> navController.navigate("dashboard/$tId") },
-                onNavigateToMarksheet = { studentId -> navController.navigate("marksheet/$termId/$studentId") }
+                onNavigateToMarksheet = { studentId -> navController.navigate("marksheet/$termId/$studentId") },
+                onNavigateToMeritList = { tId -> navController.navigate("meritList/$tId") }
             )
           }
           composable(
@@ -189,7 +191,19 @@ class MainActivity : ComponentActivity() {
               arguments = listOf(navArgument("termId") { type = NavType.IntType })
           ) { backStackEntry ->
               val termId = backStackEntry.arguments?.getInt("termId") ?: 0
-              com.abutorab.marks9b.ui.screens.DashboardScreen(termId = termId, viewModel = viewModel, onBack = { navController.popBackStack() })
+              com.abutorab.marks9b.ui.screens.DashboardScreen(
+                  termId = termId, 
+                  viewModel = viewModel, 
+                  onBack = { navController.popBackStack() },
+                  onNavigateToMeritList = { tId -> navController.navigate("meritList/$tId") }
+              )
+          }
+          composable(
+              "meritList/{termId}",
+              arguments = listOf(navArgument("termId") { type = NavType.IntType })
+          ) { backStackEntry ->
+              val termId = backStackEntry.arguments?.getInt("termId") ?: 0
+              MeritListScreen(termId = termId, viewModel = viewModel, onBack = { navController.popBackStack() })
           }
           composable(
             "marksEntry/{termId}/{subjectId}",
