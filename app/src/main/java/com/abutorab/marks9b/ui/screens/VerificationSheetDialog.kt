@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -66,6 +67,7 @@ private fun VerificationSheetContent(
 ) {
     // Bengali by default since that's how the physical sheet itself is printed.
     var useBengali by remember { mutableStateOf(true) }
+    var showTotal by remember { mutableStateOf(true) }
 
     val rolls = remember(students) { students.sortedBy { it.roll } }
     val marksByStudent = remember(marks) { marks.associateBy { it.studentId } }
@@ -84,7 +86,14 @@ private fun VerificationSheetContent(
                         Icon(Icons.Default.Close, contentDescription = "Close")
                     }
                 },
-                actions = { NumeralToggle(useBengali) { useBengali = it } },
+                actions = { 
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Total", style = MaterialTheme.typography.labelMedium)
+                        Switch(checked = showTotal, onCheckedChange = { showTotal = it }, modifier = Modifier.padding(horizontal = 6.dp))
+                        Spacer(Modifier.width(8.dp))
+                        NumeralToggle(useBengali) { useBengali = it }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -100,8 +109,12 @@ private fun VerificationSheetContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp, bottom = 12.dp)
             )
-            Box(modifier = Modifier.weight(1f).fillMaxWidth().horizontalScroll(rememberScrollState())) {
-                LedgerGrid(rolls, marksByStudent, useBengali)
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                val hScroll = rememberScrollState()
+                val vScroll = rememberScrollState()
+                Box(modifier = Modifier.horizontalScroll(hScroll).verticalScroll(vScroll).padding(bottom = 16.dp)) {
+                    LedgerGrid(rolls, marksByStudent, useBengali, showTotal)
+                }
             }
         }
     }
@@ -163,40 +176,43 @@ private fun SheetHeader(year: YearEntity, term: TermEntity, subject: SubjectEnti
 }
 
 @Composable
-private fun LedgerGrid(students: List<StudentEntity>, marksByStudent: Map<Int, MarkEntity>, useBengali: Boolean) {
+private fun LedgerGrid(students: List<StudentEntity>, marksByStudent: Map<Int, MarkEntity>, useBengali: Boolean, showTotal: Boolean) {
     val columns = if (students.isEmpty()) emptyList() else students.chunked(ROWS_PER_COLUMN)
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
         columns.forEach { columnStudents ->
-            LedgerColumn(columnStudents, marksByStudent, useBengali)
+            LedgerColumn(columnStudents, marksByStudent, useBengali, showTotal)
         }
     }
 }
 
 @Composable
-private fun LedgerColumn(students: List<StudentEntity>, marksByStudent: Map<Int, MarkEntity>, useBengali: Boolean) {
+private fun LedgerColumn(students: List<StudentEntity>, marksByStudent: Map<Int, MarkEntity>, useBengali: Boolean, showTotal: Boolean) {
     val outline = MaterialTheme.colorScheme.outline
     Column(modifier = Modifier.border(1.dp, outline)) {
         Row(
             modifier = Modifier.height(IntrinsicSize.Min).background(MaterialTheme.colorScheme.surfaceContainerHigh),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            LedgerCell("রোল", ROLL_COL_WIDTH, header = true)
+            LedgerCell("রোল\nনং", ROLL_COL_WIDTH, header = true)
             VDivider(outline)
-            LedgerCell("নৈঃ+রঃ+ব্যবঃ = মোট", MARKS_COL_WIDTH, header = true)
+            LedgerCell("প্রাপ্ত নম্বর\nনৈঃ+রঃ+ব্যবঃ = মোট", MARKS_COL_WIDTH, header = true)
         }
         HorizontalDivider(color = outline)
         students.forEachIndexed { idx, student ->
             val mark = marksByStudent[student.id]
             val total = (mark?.mcqMarks ?: 0) + (mark?.writtenMarks ?: 0) + (mark?.practicalMarks ?: 0)
             val rawBreakdown = TabulationDisplay.formatBreakdown(mark?.mcqMarks, mark?.writtenMarks, mark?.practicalMarks, total)
-            val breakdown = if (rawBreakdown == "-") "" else rawBreakdown
+            var breakdown = if (rawBreakdown == "-") "" else rawBreakdown
+            if (!showTotal && breakdown.contains("=")) {
+                breakdown = breakdown.substringBefore("=").trim()
+            }
 
             Row(modifier = Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
-                LedgerCell(NumeralFormat.localize(student.roll.toString(), useBengali), ROLL_COL_WIDTH)
+                LedgerCell(NumeralFormat.localize(student.roll.toString(), true), ROLL_COL_WIDTH)
                 VDivider(outline)
                 LedgerCell(NumeralFormat.localize(breakdown, useBengali), MARKS_COL_WIDTH, alignStart = true)
             }
-            if (idx < students.lastIndex) HorizontalDivider(color = outline.copy(alpha = 0.4f))
+            if (idx < students.lastIndex) HorizontalDivider(color = outline)
         }
     }
 }
