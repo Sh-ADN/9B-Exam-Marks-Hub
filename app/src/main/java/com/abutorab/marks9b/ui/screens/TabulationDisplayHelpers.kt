@@ -3,6 +3,19 @@ package com.abutorab.marks9b.ui.screens
 import com.abutorab.marks9b.data.local.entity.SheetRole
 import com.abutorab.marks9b.data.local.entity.SubjectEntity
 
+object NumeralFormat {
+    fun localize(value: String, useBengali: Boolean): String {
+        if (!useBengali) return value
+        return value.map { char ->
+            if (char in '0'..'9') {
+                (char - '0' + '০'.code).toChar()
+            } else {
+                char
+            }
+        }.joinToString("")
+    }
+}
+
 object TabulationDisplay {
 
     // Column header label for Tabulation's grid — generic/merged where multiple

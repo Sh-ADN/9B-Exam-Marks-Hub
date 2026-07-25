@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Visibility
 import kotlinx.coroutines.delay
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
@@ -70,6 +71,7 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
     var isImporting by remember { mutableStateOf(false) }
     var hasAutoImported by remember(subjectId) { mutableStateOf(false) }
     var showClearConfirmDialog by remember { mutableStateOf(false) }
+    var showVerificationSheet by remember { mutableStateOf(false) }
     var previousMarksSnapshot by remember { mutableStateOf<List<MarkEntity>?>(null) }
 
     fun performImport(showFeedback: Boolean) {
@@ -183,6 +185,17 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
         )
     }
 
+    if (showVerificationSheet) {
+        VerificationSheetDialog(
+            year = currentYear,
+            term = currentTerm,
+            subject = subject,
+            students = filteredStudents,
+            marks = marks,
+            onDismiss = { showVerificationSheet = false }
+        )
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
@@ -193,6 +206,9 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 ),
                 actions = {
+                    IconButton(onClick = { showVerificationSheet = true }) {
+                        Icon(Icons.Default.Visibility, contentDescription = "Verify Against Paper Sheet")
+                    }
                     IconButton(
                         onClick = { showClearConfirmDialog = true },
                         enabled = filteredStudents.isNotEmpty()
