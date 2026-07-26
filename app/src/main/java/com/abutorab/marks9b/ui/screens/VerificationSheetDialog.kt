@@ -133,7 +133,9 @@ private fun VerificationSheetContent(
                 val hScroll = rememberScrollState()
                 val vScroll = rememberScrollState()
                 Box(modifier = Modifier.fillMaxSize().horizontalScroll(hScroll).verticalScroll(vScroll).padding(bottom = 16.dp)) {
-                    LedgerGrid(students, marksByStudent, useBengali, showTotal, scale)
+                    ScaledContainer(scale = scale) {
+                        LedgerGrid(students, marksByStudent, useBengali, showTotal)
+                    }
                 }
             }
         }
@@ -196,34 +198,34 @@ private fun SheetHeader(year: YearEntity, term: TermEntity, subject: SubjectEnti
 }
 
 @Composable
-private fun LedgerGrid(students: List<StudentEntity>, marksByStudent: Map<Int, MarkEntity>, useBengali: Boolean, showTotal: Boolean, scale: Float) {
+private fun LedgerGrid(students: List<StudentEntity>, marksByStudent: Map<Int, MarkEntity>, useBengali: Boolean, showTotal: Boolean) {
     val allRolls = (1..150).toList()
     val columns = allRolls.chunked(ROWS_PER_COLUMN)
     val studentByRoll = remember(students) { students.associateBy { it.roll } }
     
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp * scale), modifier = Modifier.padding(horizontal = 16.dp * scale, vertical = 4.dp * scale)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
         columns.forEach { columnRolls ->
-            LedgerColumn(columnRolls, studentByRoll, marksByStudent, useBengali, showTotal, scale)
+            LedgerColumn(columnRolls, studentByRoll, marksByStudent, useBengali, showTotal)
         }
     }
 }
 
 @Composable
-private fun LedgerColumn(rolls: List<Int>, studentByRoll: Map<Int, StudentEntity>, marksByStudent: Map<Int, MarkEntity>, useBengali: Boolean, showTotal: Boolean, scale: Float) {
+private fun LedgerColumn(rolls: List<Int>, studentByRoll: Map<Int, StudentEntity>, marksByStudent: Map<Int, MarkEntity>, useBengali: Boolean, showTotal: Boolean) {
     val outline = MaterialTheme.colorScheme.outline
-    val rollColWidth = 52.dp * scale
-    val marksColWidth = 180.dp * scale
+    val rollColWidth = 64.dp
+    val marksColWidth = 190.dp
     
-    Column(modifier = Modifier.border(1.dp * scale, outline)) {
+    Column(modifier = Modifier.border(1.dp, outline)) {
         Row(
             modifier = Modifier.height(IntrinsicSize.Min).background(MaterialTheme.colorScheme.surfaceContainerHigh),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            LedgerCell("রোল\nনং", rollColWidth, scale, header = true)
-            VDivider(outline, scale)
-            LedgerCell("প্রাপ্ত নম্বর\nনৈঃ+রঃ+ব্যবঃ = মোট", marksColWidth, scale, header = true)
+            LedgerCell("রোল\nনং", rollColWidth, header = true)
+            VDivider(outline)
+            LedgerCell("প্রাপ্ত নম্বর\nনৈঃ+রঃ+ব্যবঃ = মোট", marksColWidth, header = true)
         }
-        HorizontalDivider(color = outline, thickness = 1.dp * scale)
+        HDivider(color = outline)
         rolls.forEachIndexed { idx, roll ->
             val student = studentByRoll[roll]
             val mark = if (student != null) marksByStudent[student.id] else null
@@ -235,34 +237,55 @@ private fun LedgerColumn(rolls: List<Int>, studentByRoll: Map<Int, StudentEntity
             }
 
             Row(modifier = Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
-                LedgerCell(NumeralFormat.localize(roll.toString(), true), rollColWidth, scale)
-                VDivider(outline, scale)
-                LedgerCell(NumeralFormat.localize(breakdown, useBengali), marksColWidth, scale, alignStart = true)
+                LedgerCell(NumeralFormat.localize(roll.toString(), true), rollColWidth)
+                VDivider(outline)
+                LedgerCell(NumeralFormat.localize(breakdown, useBengali), marksColWidth, alignStart = true)
             }
-            if (idx < rolls.lastIndex) HorizontalDivider(color = outline, thickness = 1.dp * scale)
+            if (idx < rolls.lastIndex) HDivider(color = outline)
         }
     }
 }
 
 @Composable
-private fun VDivider(color: Color, scale: Float) {
-    Box(modifier = Modifier.width(1.dp * scale).fillMaxHeight().background(color))
+private fun HDivider(color: Color) {
+    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(color))
 }
 
 @Composable
-private fun LedgerCell(text: String, width: Dp, scale: Float, header: Boolean = false, alignStart: Boolean = false) {
+private fun VDivider(color: Color) {
+    Box(modifier = Modifier.width(1.dp).fillMaxHeight().background(color))
+}
+
+@Composable
+private fun LedgerCell(text: String, width: Dp, header: Boolean = false, alignStart: Boolean = false) {
     Box(
-        modifier = Modifier.width(width).padding(horizontal = 8.dp * scale, vertical = 8.dp * scale),
+        modifier = Modifier.width(width).padding(horizontal = 8.dp, vertical = 10.dp),
         contentAlignment = if (alignStart) Alignment.CenterStart else Alignment.Center
     ) {
         Text(
             text = text,
             style = if (header) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
-            fontSize = if (header) 14.sp * scale else 18.sp * scale,
-            lineHeight = if (header) 18.sp * scale else 24.sp * scale,
             fontWeight = FontWeight.Bold,
             textAlign = if (alignStart) TextAlign.Start else TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurface
         )
+    }
+}
+
+@Composable
+private fun ScaledContainer(scale: Float, content: @Composable () -> Unit) {
+    androidx.compose.ui.layout.Layout(
+        content = content
+    ) { measurables, constraints ->
+        val placeable = measurables.first().measure(androidx.compose.ui.unit.Constraints())
+        val width = (placeable.width * scale).toInt()
+        val height = (placeable.height * scale).toInt()
+        layout(width, height) {
+            placeable.placeRelativeWithLayer(0, 0) {
+                scaleX = scale
+                scaleY = scale
+                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f)
+            }
+        }
     }
 }
