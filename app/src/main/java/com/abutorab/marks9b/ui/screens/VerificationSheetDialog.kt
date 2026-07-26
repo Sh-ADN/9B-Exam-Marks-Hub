@@ -3,12 +3,7 @@ package com.abutorab.marks9b.ui.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.gestures.transformable
-import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -17,14 +12,23 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.unit.times
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.splineBasedDecay
+import androidx.compose.foundation.gestures.detectTapGestures
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.coroutineScope
 import com.abutorab.marks9b.data.local.entity.MarkEntity
 import com.abutorab.marks9b.data.local.entity.StudentEntity
 import com.abutorab.marks9b.data.local.entity.SubjectEntity
@@ -72,7 +76,29 @@ private fun VerificationSheetContent(
     // Bengali by default since that's how the physical sheet itself is printed.
     var useBengali by remember { mutableStateOf(true) }
     var showTotal by remember { mutableStateOf(true) }
-    var scale by remember { mutableFloatStateOf(1.2f) }
+    
+    // Zoom/Pan state
+    var scale by remember { mutableFloatStateOf(1f) }
+    val offsetX = remember { Animatable(0f) }
+    val offsetY = remember { Animatable(0f) }
+    
+    var containerWidth by remember { mutableFloatStateOf(1f) }
+    var containerHeight by remember { mutableFloatStateOf(1f) }
+    var contentWidth by remember { mutableFloatStateOf(1f) }
+    var contentHeight by remember { mutableFloatStateOf(1f) }
+    
+    val scope = rememberCoroutineScope()
+    val minScale = 1f
+    val maxScale = 4f
+    
+    fun clampOffset(offset: Float, contentSize: Float, containerSize: Float, currentScale: Float): Float {
+        val scaledContent = contentSize * currentScale
+        return if (scaledContent <= containerSize) {
+            0f
+        } else {
+            offset.coerceIn(containerSize - scaledContent, 0f)
+        }
+    }
 
     val rolls = remember(students) { students.sortedBy { it.roll } }
     val marksByStudent = remember(marks) { marks.associateBy { it.studentId } }
@@ -92,12 +118,6 @@ private fun VerificationSheetContent(
                     }
                 },
                 actions = { 
-                    TextButton(onClick = { scale = (scale - 0.2f).coerceAtLeast(0.6f) }) {
-                        Text("-", style = MaterialTheme.typography.titleLarge)
-                    }
-                    TextButton(onClick = { scale = (scale + 0.2f).coerceAtMost(4f) }) {
-                        Text("+", style = MaterialTheme.typography.titleLarge)
-                    }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Total", style = MaterialTheme.typography.labelMedium)
                         Switch(checked = showTotal, onCheckedChange = { showTotal = it }, modifier = Modifier.padding(horizontal = 6.dp))
@@ -124,18 +144,84 @@ private fun VerificationSheetContent(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .transformable(
-                        state = rememberTransformableState { zoomChange, _, _ ->
-                            scale = (scale * zoomChange).coerceIn(0.6f, 4f)
-                        }
-                    )
-            ) {
-                val hScroll = rememberScrollState()
-                val vScroll = rememberScrollState()
-                Box(modifier = Modifier.fillMaxSize().horizontalScroll(hScroll).verticalScroll(vScroll).padding(bottom = 16.dp)) {
-                    ScaledContainer(scale = scale) {
-                        LedgerGrid(students, marksByStudent, useBengali, showTotal)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .onSizeChanged { size ->
+                        containerWidth = size.width.toFloat()
+                        containerHeight = size.height.toFloat()
                     }
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onDoubleTap = { centroid ->
+                                scope.launch {
+                                    val targetScale = if (scale > minScale) minScale else 2f
+                                    val fractionalChange = targetScale / scale
+                                    
+                                    var targetOffsetX = (offsetX.value - centroid.x) * fractionalChange + centroid.x
+                                    var targetOffsetY = (offsetY.value - centroid.y) * fractionalChange + centroid.y
+                                    
+                                    targetOffsetX = clampOffset(targetOffsetX, contentWidth, containerWidth, targetScale)
+                                    targetOffsetY = clampOffset(targetOffsetY, contentHeight, containerHeight, targetScale)
+                                    
+                                    scale = targetScale
+                                    launch { offsetX.animateTo(targetOffsetX, tween(300)) }
+                                    launch { offsetY.animateTo(targetOffsetY, tween(300)) }
+                                }
+                            }
+                        )
+                    }
+                    .pointerInput(Unit) {
+                        detectZoomPanFling(
+                            onGesture = { zoomChange, panChange, centroid ->
+                                val oldScale = scale
+                                scale = (scale * zoomChange).coerceIn(minScale, maxScale)
+                                val fractionalChange = scale / oldScale
+                                
+                                val newOffsetX = (offsetX.value - centroid.x) * fractionalChange + centroid.x + panChange.x
+                                val newOffsetY = (offsetY.value - centroid.y) * fractionalChange + centroid.y + panChange.y
+                                
+                                scope.launch {
+                                    offsetX.snapTo(clampOffset(newOffsetX, contentWidth, containerWidth, scale))
+                                    offsetY.snapTo(clampOffset(newOffsetY, contentHeight, containerHeight, scale))
+                                }
+                            },
+                            onFling = { velocity ->
+                                val decayX = splineBasedDecay<Float>(this)
+                                val decayY = splineBasedDecay<Float>(this)
+                                
+                                val scaledWidth = contentWidth * scale
+                                val scaledHeight = contentHeight * scale
+                                
+                                val minX = if (scaledWidth <= containerWidth) 0f else containerWidth - scaledWidth
+                                val minY = if (scaledHeight <= containerHeight) 0f else containerHeight - scaledHeight
+                                
+                                offsetX.updateBounds(minX, 0f)
+                                offsetY.updateBounds(minY, 0f)
+                                
+                                scope.launch {
+                                    launch { offsetX.animateDecay(velocity.x, decayX) }
+                                    launch { offsetY.animateDecay(velocity.y, decayY) }
+                                }
+                            }
+                        )
+                    }
+            ) {
+                Box(
+                    modifier = Modifier
+                        .wrapContentSize(unbounded = true, align = Alignment.TopStart)
+                        .graphicsLayer {
+                            scaleX = scale
+                            scaleY = scale
+                            translationX = offsetX.value
+                            translationY = offsetY.value
+                            transformOrigin = TransformOrigin(0f, 0f)
+                        }
+                        .onSizeChanged { size ->
+                            contentWidth = size.width.toFloat()
+                            contentHeight = size.height.toFloat()
+                        }
+                        .padding(bottom = 16.dp)
+                ) {
+                    LedgerGrid(students, marksByStudent, useBengali, showTotal)
                 }
             }
         }
@@ -212,7 +298,7 @@ private fun LedgerGrid(students: List<StudentEntity>, marksByStudent: Map<Int, M
 
 @Composable
 private fun LedgerColumn(rolls: List<Int>, studentByRoll: Map<Int, StudentEntity>, marksByStudent: Map<Int, MarkEntity>, useBengali: Boolean, showTotal: Boolean) {
-    val outline = MaterialTheme.colorScheme.outline
+    val outline = Color.Black
     val rollColWidth = 64.dp
     val marksColWidth = 190.dp
     
@@ -267,25 +353,7 @@ private fun LedgerCell(text: String, width: Dp, header: Boolean = false, alignSt
             style = if (header) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             textAlign = if (alignStart) TextAlign.Start else TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurface
+            color = Color.Black
         )
-    }
-}
-
-@Composable
-private fun ScaledContainer(scale: Float, content: @Composable () -> Unit) {
-    androidx.compose.ui.layout.Layout(
-        content = content
-    ) { measurables, constraints ->
-        val placeable = measurables.first().measure(androidx.compose.ui.unit.Constraints())
-        val width = (placeable.width * scale).toInt()
-        val height = (placeable.height * scale).toInt()
-        layout(width, height) {
-            placeable.placeRelativeWithLayer(0, 0) {
-                scaleX = scale
-                scaleY = scale
-                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f)
-            }
-        }
     }
 }
