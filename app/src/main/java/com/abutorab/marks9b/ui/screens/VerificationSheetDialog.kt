@@ -3,32 +3,29 @@ package com.abutorab.marks9b.ui.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ZoomIn
+import androidx.compose.material.icons.filled.ZoomOut
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.splineBasedDecay
-import androidx.compose.foundation.gestures.detectTapGestures
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.coroutineScope
 import com.abutorab.marks9b.data.local.entity.MarkEntity
 import com.abutorab.marks9b.data.local.entity.StudentEntity
 import com.abutorab.marks9b.data.local.entity.SubjectEntity
@@ -38,8 +35,27 @@ import com.abutorab.marks9b.data.local.entity.examPeriodLabel
 
 private const val SCHOOL_NAME = "আবুতোরাব বহুমুখী উচ্চ বিদ্যালয়"
 private const val ROWS_PER_COLUMN = 50
-private val ROLL_COL_WIDTH = 52.dp
-private val MARKS_COL_WIDTH = 168.dp
+
+// Zoom is done by scaling font size + column width together (real relayout,
+// not a GPU stretch of a rasterized layer) — text stays crisp at every step,
+// and since width scales in lockstep with font size, whatever fits on one
+// line at 1x fits on one line at every step. maxLines = 1 is still kept as a
+// hard backstop in LedgerCell so a row can never silently wrap and throw the
+// grid's row heights out of alignment.
+private val ZOOM_LEVELS = listOf(0.8f, 1f, 1.2f, 1.4f)
+private const val BASE_ROLL_COL_WIDTH = 62
+private const val BASE_MARKS_COL_WIDTH = 190
+private const val BASE_HEADER_SP = 13
+private const val BASE_BODY_SP = 16
+
+private data class LedgerZoom(val rollWidth: Dp, val marksWidth: Dp, val headerSize: TextUnit, val bodySize: TextUnit)
+
+private fun ledgerZoomFor(step: Float) = LedgerZoom(
+    rollWidth = (BASE_ROLL_COL_WIDTH * step).dp,
+    marksWidth = (BASE_MARKS_COL_WIDTH * step).dp,
+    headerSize = (BASE_HEADER_SP * step).sp,
+    bodySize = (BASE_BODY_SP * step).sp
+)
 
 /**
  * Full-screen look-alike of the paper "নম্বর ফর্দ" (marks ledger) teachers write
@@ -76,37 +92,21 @@ private fun VerificationSheetContent(
     // Bengali by default since that's how the physical sheet itself is printed.
     var useBengali by remember { mutableStateOf(true) }
     var showTotal by remember { mutableStateOf(true) }
-    
-    // Zoom/Pan state
-    var scale by remember { mutableFloatStateOf(1f) }
-    val offsetX = remember { Animatable(0f) }
-    val offsetY = remember { Animatable(0f) }
-    
-    var containerWidth by remember { mutableFloatStateOf(1f) }
-    var containerHeight by remember { mutableFloatStateOf(1f) }
-    var contentWidth by remember { mutableFloatStateOf(1f) }
-    var contentHeight by remember { mutableFloatStateOf(1f) }
-    
-    val scope = rememberCoroutineScope()
-    val minScale = 1f
-    val maxScale = 4f
-    
-    fun clampOffset(offset: Float, contentSize: Float, containerSize: Float, currentScale: Float): Float {
-        val scaledContent = contentSize * currentScale
-        return if (scaledContent <= containerSize) {
-            0f
-        } else {
-            offset.coerceIn(containerSize - scaledContent, 0f)
-        }
-    }
+    var zoomIndex by rememberSaveable { mutableIntStateOf(1) } // index 1 == 1f, the base size
 
-    val rolls = remember(students) { students.sortedBy { it.roll } }
+    val studentByRoll = remember(students) { students.associateBy { it.roll } }
     val marksByStudent = remember(marks) { marks.associateBy { it.studentId } }
-    val enteredCount = remember(rolls, marksByStudent) {
-        rolls.count { s ->
+    // Derived from the actual roster instead of a hardcoded 150 — a class
+    // under 150 doesn't render a wall of pointless blank rows, and a class
+    // over 150 doesn't silently lose students off the bottom of the sheet.
+    val maxRoll = remember(students) { students.maxOfOrNull { it.roll } ?: 0 }
+    val allRolls = remember(maxRoll) { if (maxRoll <= 0) emptyList() else (1..maxRoll).toList() }
+    val enteredCount = remember(students, marksByStudent) {
+        students.count { s ->
             marksByStudent[s.id]?.let { it.mcqMarks != null || it.writtenMarks != null || it.practicalMarks != null } == true
         }
     }
+    val zoom = remember(zoomIndex) { ledgerZoomFor(ZOOM_LEVELS[zoomIndex]) }
 
     Scaffold(
         topBar = {
@@ -115,14 +115,6 @@ private fun VerificationSheetContent(
                 navigationIcon = {
                     IconButton(onClick = onDismiss) {
                         Icon(Icons.Default.Close, contentDescription = "Close")
-                    }
-                },
-                actions = { 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Total", style = MaterialTheme.typography.labelMedium)
-                        Switch(checked = showTotal, onCheckedChange = { showTotal = it }, modifier = Modifier.padding(horizontal = 6.dp))
-                        Spacer(Modifier.width(8.dp))
-                        NumeralToggle(useBengali) { useBengali = it }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -135,94 +127,71 @@ private fun VerificationSheetContent(
         Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
             SheetHeader(year, term, subject, useBengali)
             Text(
-                text = "${NumeralFormat.localize(enteredCount.toString(), useBengali)}/${NumeralFormat.localize(rolls.size.toString(), useBengali)} entered",
+                text = "${NumeralFormat.localize(enteredCount.toString(), useBengali)}/${NumeralFormat.localize(students.size.toString(), useBengali)} entered",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp, bottom = 12.dp)
+                modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp, bottom = 8.dp)
             )
+            ControlStrip(
+                useBengali = useBengali,
+                onBengaliChange = { useBengali = it },
+                showTotal = showTotal,
+                onShowTotalChange = { showTotal = it },
+                zoomIndex = zoomIndex,
+                onZoomOut = { if (zoomIndex > 0) zoomIndex-- },
+                onZoomIn = { if (zoomIndex < ZOOM_LEVELS.lastIndex) zoomIndex++ }
+            )
+            HorizontalDivider()
+            // Plain 2-axis scrolling — no custom gesture detectors, so nothing
+            // to conflict or race. Zoom is handled separately by the buttons
+            // above, which change actual layout size rather than a draw-time
+            // transform, so scrolling and zoom never fight each other.
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .onSizeChanged { size ->
-                        containerWidth = size.width.toFloat()
-                        containerHeight = size.height.toFloat()
-                    }
-                    .pointerInput(Unit) {
-                        detectTapGestures(
-                            onDoubleTap = { centroid ->
-                                scope.launch {
-                                    val targetScale = if (scale > minScale) minScale else 2f
-                                    val fractionalChange = targetScale / scale
-                                    
-                                    var targetOffsetX = (offsetX.value - centroid.x) * fractionalChange + centroid.x
-                                    var targetOffsetY = (offsetY.value - centroid.y) * fractionalChange + centroid.y
-                                    
-                                    targetOffsetX = clampOffset(targetOffsetX, contentWidth, containerWidth, targetScale)
-                                    targetOffsetY = clampOffset(targetOffsetY, contentHeight, containerHeight, targetScale)
-                                    
-                                    scale = targetScale
-                                    launch { offsetX.animateTo(targetOffsetX, tween(300)) }
-                                    launch { offsetY.animateTo(targetOffsetY, tween(300)) }
-                                }
-                            }
-                        )
-                    }
-                    .pointerInput(Unit) {
-                        detectZoomPanFling(
-                            onGesture = { zoomChange, panChange, centroid ->
-                                val oldScale = scale
-                                scale = (scale * zoomChange).coerceIn(minScale, maxScale)
-                                val fractionalChange = scale / oldScale
-                                
-                                val newOffsetX = (offsetX.value - centroid.x) * fractionalChange + centroid.x + panChange.x
-                                val newOffsetY = (offsetY.value - centroid.y) * fractionalChange + centroid.y + panChange.y
-                                
-                                scope.launch {
-                                    offsetX.snapTo(clampOffset(newOffsetX, contentWidth, containerWidth, scale))
-                                    offsetY.snapTo(clampOffset(newOffsetY, contentHeight, containerHeight, scale))
-                                }
-                            },
-                            onFling = { velocity ->
-                                val decayX = splineBasedDecay<Float>(this)
-                                val decayY = splineBasedDecay<Float>(this)
-                                
-                                val scaledWidth = contentWidth * scale
-                                val scaledHeight = contentHeight * scale
-                                
-                                val minX = if (scaledWidth <= containerWidth) 0f else containerWidth - scaledWidth
-                                val minY = if (scaledHeight <= containerHeight) 0f else containerHeight - scaledHeight
-                                
-                                offsetX.updateBounds(minX, 0f)
-                                offsetY.updateBounds(minY, 0f)
-                                
-                                scope.launch {
-                                    launch { offsetX.animateDecay(velocity.x, decayX) }
-                                    launch { offsetY.animateDecay(velocity.y, decayY) }
-                                }
-                            }
-                        )
-                    }
+                    .background(Color(0xFFFFFDF7)) // fixed "paper" tone so black ink text/borders stay visible regardless of app theme
+                    .horizontalScroll(rememberScrollState())
+                    .verticalScroll(rememberScrollState())
             ) {
-                Box(
-                    modifier = Modifier
-                        .wrapContentSize(unbounded = true, align = Alignment.TopStart)
-                        .graphicsLayer {
-                            scaleX = scale
-                            scaleY = scale
-                            translationX = offsetX.value
-                            translationY = offsetY.value
-                            transformOrigin = TransformOrigin(0f, 0f)
-                        }
-                        .onSizeChanged { size ->
-                            contentWidth = size.width.toFloat()
-                            contentHeight = size.height.toFloat()
-                        }
-                        .padding(bottom = 16.dp)
-                ) {
-                    LedgerGrid(students, marksByStudent, useBengali, showTotal)
-                }
+                LedgerGrid(allRolls, studentByRoll, marksByStudent, useBengali, showTotal, zoom)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ControlStrip(
+    useBengali: Boolean,
+    onBengaliChange: (Boolean) -> Unit,
+    showTotal: Boolean,
+    onShowTotalChange: (Boolean) -> Unit,
+    zoomIndex: Int,
+    onZoomOut: () -> Unit,
+    onZoomIn: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        NumeralToggle(useBengali, onBengaliChange)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Total", style = MaterialTheme.typography.labelMedium)
+            Switch(checked = showTotal, onCheckedChange = onShowTotalChange, modifier = Modifier.padding(start = 6.dp))
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onZoomOut, enabled = zoomIndex > 0, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Default.ZoomOut, contentDescription = "Zoom out")
+            }
+            Text(
+                "${(ZOOM_LEVELS[zoomIndex] * 100).toInt()}%",
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.width(36.dp),
+                textAlign = TextAlign.Center
+            )
+            IconButton(onClick = onZoomIn, enabled = zoomIndex < ZOOM_LEVELS.lastIndex, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Default.ZoomIn, contentDescription = "Zoom in")
             }
         }
     }
@@ -230,19 +199,19 @@ private fun VerificationSheetContent(
 
 @Composable
 private fun NumeralToggle(useBengali: Boolean, onChange: (Boolean) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 12.dp)) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             "বাং",
             style = MaterialTheme.typography.labelMedium,
             fontWeight = if (useBengali) FontWeight.Bold else FontWeight.Normal,
-            color = if (useBengali) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f)
+            color = if (useBengali) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
         )
         Switch(checked = !useBengali, onCheckedChange = { onChange(!it) }, modifier = Modifier.padding(horizontal = 6.dp))
         Text(
             "EN",
             style = MaterialTheme.typography.labelMedium,
             fontWeight = if (!useBengali) FontWeight.Bold else FontWeight.Normal,
-            color = if (!useBengali) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f)
+            color = if (!useBengali) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -284,37 +253,51 @@ private fun SheetHeader(year: YearEntity, term: TermEntity, subject: SubjectEnti
 }
 
 @Composable
-private fun LedgerGrid(students: List<StudentEntity>, marksByStudent: Map<Int, MarkEntity>, useBengali: Boolean, showTotal: Boolean) {
-    val allRolls = (1..150).toList()
-    val columns = allRolls.chunked(ROWS_PER_COLUMN)
-    val studentByRoll = remember(students) { students.associateBy { it.roll } }
-    
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+private fun LedgerGrid(
+    rolls: List<Int>,
+    studentByRoll: Map<Int, StudentEntity>,
+    marksByStudent: Map<Int, MarkEntity>,
+    useBengali: Boolean,
+    showTotal: Boolean,
+    zoom: LedgerZoom
+) {
+    if (rolls.isEmpty()) {
+        Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+            Text("No students to verify yet", color = Color.DarkGray)
+        }
+        return
+    }
+    val columns = rolls.chunked(ROWS_PER_COLUMN)
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(16.dp)) {
         columns.forEach { columnRolls ->
-            LedgerColumn(columnRolls, studentByRoll, marksByStudent, useBengali, showTotal)
+            LedgerColumn(columnRolls, studentByRoll, marksByStudent, useBengali, showTotal, zoom)
         }
     }
 }
 
 @Composable
-private fun LedgerColumn(rolls: List<Int>, studentByRoll: Map<Int, StudentEntity>, marksByStudent: Map<Int, MarkEntity>, useBengali: Boolean, showTotal: Boolean) {
+private fun LedgerColumn(
+    rolls: List<Int>,
+    studentByRoll: Map<Int, StudentEntity>,
+    marksByStudent: Map<Int, MarkEntity>,
+    useBengali: Boolean,
+    showTotal: Boolean,
+    zoom: LedgerZoom
+) {
     val outline = Color.Black
-    val rollColWidth = 64.dp
-    val marksColWidth = 190.dp
-    
     Column(modifier = Modifier.border(1.dp, outline)) {
         Row(
-            modifier = Modifier.height(IntrinsicSize.Min).background(MaterialTheme.colorScheme.surfaceContainerHigh),
+            modifier = Modifier.height(IntrinsicSize.Min).background(Color(0xFFF2EEE3)),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            LedgerCell("রোল\nনং", rollColWidth, header = true)
+            LedgerCell("রোল\nনং", zoom.rollWidth, zoom.headerSize, header = true)
             VDivider(outline)
-            LedgerCell("প্রাপ্ত নম্বর\nনৈঃ+রঃ+ব্যবঃ = মোট", marksColWidth, header = true)
+            LedgerCell("প্রাপ্ত নম্বর\nনৈঃ+রঃ+ব্যবঃ = মোট", zoom.marksWidth, zoom.headerSize, header = true)
         }
-        HDivider(color = outline)
+        HDivider(outline)
         rolls.forEachIndexed { idx, roll ->
             val student = studentByRoll[roll]
-            val mark = if (student != null) marksByStudent[student.id] else null
+            val mark = student?.let { marksByStudent[it.id] }
             val total = (mark?.mcqMarks ?: 0) + (mark?.writtenMarks ?: 0) + (mark?.practicalMarks ?: 0)
             val rawBreakdown = TabulationDisplay.formatBreakdown(mark?.mcqMarks, mark?.writtenMarks, mark?.practicalMarks, total)
             var breakdown = if (rawBreakdown == "-") "" else rawBreakdown
@@ -323,11 +306,11 @@ private fun LedgerColumn(rolls: List<Int>, studentByRoll: Map<Int, StudentEntity
             }
 
             Row(modifier = Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
-                LedgerCell(NumeralFormat.localize(roll.toString(), true), rollColWidth)
+                LedgerCell(NumeralFormat.localize(roll.toString(), true), zoom.rollWidth, zoom.bodySize)
                 VDivider(outline)
-                LedgerCell(NumeralFormat.localize(breakdown, useBengali), marksColWidth, alignStart = true)
+                LedgerCell(NumeralFormat.localize(breakdown, useBengali), zoom.marksWidth, zoom.bodySize, alignStart = true)
             }
-            if (idx < rolls.lastIndex) HDivider(color = outline)
+            if (idx < rolls.lastIndex) HDivider(outline)
         }
     }
 }
@@ -343,15 +326,20 @@ private fun VDivider(color: Color) {
 }
 
 @Composable
-private fun LedgerCell(text: String, width: Dp, header: Boolean = false, alignStart: Boolean = false) {
+private fun LedgerCell(text: String, width: Dp, fontSize: TextUnit, header: Boolean = false, alignStart: Boolean = false) {
     Box(
         modifier = Modifier.width(width).padding(horizontal = 8.dp, vertical = 10.dp),
         contentAlignment = if (alignStart) Alignment.CenterStart else Alignment.Center
     ) {
         Text(
             text = text,
-            style = if (header) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
+            fontSize = fontSize,
             fontWeight = FontWeight.Bold,
+            // Header keeps its intentional 2-line "রোল\nনং" split; data rows
+            // are hard-capped at 1 line so a long value can never wrap and
+            // throw this row's height out of sync with its neighbors — the
+            // actual cause of the misaligned-looking borders.
+            maxLines = if (header) 2 else 1,
             textAlign = if (alignStart) TextAlign.Start else TextAlign.Center,
             color = Color.Black
         )
