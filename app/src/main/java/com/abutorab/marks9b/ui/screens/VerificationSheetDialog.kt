@@ -285,7 +285,8 @@ private fun LedgerColumn(
     zoom: LedgerZoom
 ) {
     val outline = Color.Black
-    Column(modifier = Modifier.border(1.dp, outline)) {
+    val colWidth = zoom.rollWidth + zoom.marksWidth + 1.dp
+    Column(modifier = Modifier.width(colWidth).border(1.dp, outline)) {
         Row(
             modifier = Modifier.height(IntrinsicSize.Min).background(Color(0xFFF2EEE3)),
             verticalAlignment = Alignment.CenterVertically
@@ -294,7 +295,7 @@ private fun LedgerColumn(
             VDivider(outline)
             LedgerCell("প্রাপ্ত নম্বর\nনৈঃ+রঃ+ব্যবঃ = মোট", zoom.marksWidth, zoom.headerSize, header = true)
         }
-        HDivider(outline)
+        HorizontalDivider(color = outline, thickness = 1.dp)
         rolls.forEachIndexed { idx, roll ->
             val student = studentByRoll[roll]
             val mark = student?.let { marksByStudent[it.id] }
@@ -310,14 +311,9 @@ private fun LedgerColumn(
                 VDivider(outline)
                 LedgerCell(NumeralFormat.localize(breakdown, useBengali), zoom.marksWidth, zoom.bodySize, alignStart = true)
             }
-            if (idx < rolls.lastIndex) HDivider(outline)
+            if (idx < rolls.lastIndex) HorizontalDivider(color = outline, thickness = 1.dp)
         }
     }
-}
-
-@Composable
-private fun HDivider(color: Color) {
-    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(color))
 }
 
 @Composable
