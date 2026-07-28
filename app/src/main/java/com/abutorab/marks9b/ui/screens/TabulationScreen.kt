@@ -124,39 +124,63 @@ fun TabulationScreen(termId: Int, viewModel: MarksViewModel, onNavigateToMarkshe
                     }
                 }
                 HorizontalDivider()
+                val maxRoll = remember(students) { students.maxOfOrNull { it.roll } ?: 0 }
+                val allRolls = remember(maxRoll) { if (maxRoll > 0) (1..maxRoll).toList() else emptyList() }
+
                 LazyColumn(modifier = Modifier.weight(1f)) {
-                    items(results, key = { it.student.id }) { result ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(if (selectedStudentId == result.student.id) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
-                                .combinedClickable(
-                                    onClick = { selectedStudentId = if (selectedStudentId == result.student.id) null else result.student.id },
-                                    onDoubleClick = { onNavigateToMarksheet(result.student.id) }
-                                )
-                                .padding(vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            DataCell(result.student.roll.toString(), 44.dp)
-                            DataCell(result.student.name, 120.dp, alignStart = true)
-                            Row(modifier = Modifier.weight(1f).horizontalScroll(horizontalScrollState)) {
-                                columnSlots.forEach { slot ->
-                                    val sr = result.subjectResults.find {
-                                        it.subject.sheetRole == slot.sheetRole &&
-                                            (it.subject.sheetRole != SheetRole.BGS_OR_SCIENCE.name || it.subject.applicabilityValue == slot.applicabilityValue)
+                    items(allRolls, key = { it }) { roll ->
+                        val result = results.find { it.student.roll == roll }
+                        if (result != null) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(if (selectedStudentId == result.student.id) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+                                    .combinedClickable(
+                                        onClick = { selectedStudentId = if (selectedStudentId == result.student.id) null else result.student.id },
+                                        onDoubleClick = { onNavigateToMarksheet(result.student.id) }
+                                    )
+                                    .padding(vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                DataCell(result.student.roll.toString(), 44.dp)
+                                DataCell(result.student.name, 120.dp, alignStart = true)
+                                Row(modifier = Modifier.weight(1f).horizontalScroll(horizontalScrollState)) {
+                                    columnSlots.forEach { slot ->
+                                        val sr = result.subjectResults.find {
+                                            it.subject.sheetRole == slot.sheetRole &&
+                                                (it.subject.sheetRole != SheetRole.BGS_OR_SCIENCE.name || it.subject.applicabilityValue == slot.applicabilityValue)
+                                        }
+                                        val text = TabulationDisplay.formatBreakdown(sr?.mcqMarks, sr?.writtenMarks, sr?.practicalMarks, sr?.total ?: 0)
+                                        val cellColor = if (sr?.letterGrade == "F") FailRed else MaterialTheme.colorScheme.onSurface
+                                        DataCell(text, slot.width, color = cellColor)
                                     }
-                                    val text = TabulationDisplay.formatBreakdown(sr?.mcqMarks, sr?.writtenMarks, sr?.practicalMarks, sr?.total ?: 0)
-                                    val cellColor = if (sr?.letterGrade == "F") FailRed else MaterialTheme.colorScheme.onSurface
-                                    DataCell(text, slot.width, color = cellColor)
+                                    DataCell(result.grandTotal.toString(), 64.dp)
+                                    DataCell(result.gpa?.let { "%.2f".format(it) } ?: "-", 56.dp, color = MaterialTheme.colorScheme.tertiary)
+                                    DataCell(
+                                        result.letterGrade.ifEmpty { "-" },
+                                        56.dp,
+                                        color = if (result.letterGrade == "F") FailRed else MaterialTheme.colorScheme.onSurface
+                                    )
+                                    DataCell(result.position?.toString() ?: "-", 48.dp)
                                 }
-                                DataCell(result.grandTotal.toString(), 64.dp)
-                                DataCell(result.gpa?.let { "%.2f".format(it) } ?: "-", 56.dp, color = MaterialTheme.colorScheme.tertiary)
-                                DataCell(
-                                    result.letterGrade.ifEmpty { "-" },
-                                    56.dp,
-                                    color = if (result.letterGrade == "F") FailRed else MaterialTheme.colorScheme.onSurface
-                                )
-                                DataCell(result.position?.toString() ?: "-", 48.dp)
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                DataCell(roll.toString(), 44.dp)
+                                DataCell("-", 120.dp, alignStart = true, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                                Row(modifier = Modifier.weight(1f).horizontalScroll(horizontalScrollState)) {
+                                    columnSlots.forEach { slot ->
+                                        DataCell("-", slot.width, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                                    }
+                                    summaryColumns.forEach { (_, width) ->
+                                        DataCell("-", width, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                                    }
+                                }
                             }
                         }
                         HorizontalDivider()
