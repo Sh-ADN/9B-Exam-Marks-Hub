@@ -324,7 +324,7 @@ private fun VDivider(color: Color) {
 @Composable
 private fun LedgerCell(text: String, width: Dp, fontSize: TextUnit, header: Boolean = false, alignStart: Boolean = false) {
     Box(
-        modifier = Modifier.width(width).padding(horizontal = 8.dp, vertical = 10.dp),
+        modifier = Modifier.width(width).padding(horizontal = 8.dp, vertical = 2.dp),
         contentAlignment = if (alignStart) Alignment.CenterStart else Alignment.Center
     ) {
         Text(

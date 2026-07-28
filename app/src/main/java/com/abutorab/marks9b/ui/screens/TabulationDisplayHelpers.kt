@@ -96,8 +96,10 @@ object TabulationDisplay {
     // A single-component subject (e.g. English) just shows the bare number.
     fun formatBreakdown(mcq: Int?, written: Int?, practical: Int?, total: Int): String {
         val parts = listOfNotNull(mcq, written, practical)
-        if (parts.isEmpty() || total == 0) return "-"
-        return if (parts.size <= 1) "$total" else parts.joinToString("+") + "=" + total
+        if (parts.isEmpty()) return "-"
+        val formattedParts = parts.map { it.toString().padStart(2, '0') }
+        val formattedTotal = total.toString().padStart(2, '0')
+        return if (parts.size <= 1) formattedTotal else formattedParts.joinToString("+") + "=" + formattedTotal
     }
 
     // Row order for the per-student Marksheet ledger — grouped by track
