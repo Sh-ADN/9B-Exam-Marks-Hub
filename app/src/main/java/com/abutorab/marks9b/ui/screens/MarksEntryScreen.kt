@@ -69,7 +69,6 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
     var isExporting by remember { mutableStateOf(false) }
     var exportProgress by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     var isImporting by remember { mutableStateOf(false) }
-    var hasAutoImported by remember(subjectId) { mutableStateOf(false) }
     var showClearConfirmDialog by remember { mutableStateOf(false) }
     var showVerificationSheet by remember { mutableStateOf(false) }
     var previousMarksSnapshot by remember { mutableStateOf<List<MarkEntity>?>(null) }
@@ -131,13 +130,6 @@ fun MarksEntryScreen(termId: Int, subjectId: Int, viewModel: MarksViewModel) {
             } else if (showFeedback) {
                 snackbarHostState.showSnackbar(result.exceptionOrNull()?.message ?: "Import failed")
             }
-        }
-    }
-
-    LaunchedEffect(subjectId, allStudents) {
-        if (!hasAutoImported && allStudents.isNotEmpty()) {
-            hasAutoImported = true
-            performImport(showFeedback = false)
         }
     }
 
