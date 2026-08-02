@@ -386,6 +386,39 @@ fun MarkEntryRow(
     existingMark: MarkEntity?,
     onSaveMark: (mcq: Int?, written: Int?, practical: Int?) -> Unit
 ) {
+    var flashTrigger by remember { mutableStateOf(0) }
+    var isInitialLoad by remember { mutableStateOf(true) }
+    
+    LaunchedEffect(existingMark) {
+        if (!isInitialLoad) {
+            flashTrigger++
+        }
+        isInitialLoad = false
+    }
+
+    val defaultColor = MaterialTheme.colorScheme.surfaceContainer
+    val highlightColor = MaterialTheme.colorScheme.primaryContainer
+    var isHighlight by remember { mutableStateOf(false) }
+
+    LaunchedEffect(flashTrigger) {
+        if (flashTrigger > 0) {
+            isHighlight = true
+            kotlinx.coroutines.delay(700)
+            isHighlight = false
+        }
+    }
+
+    val targetColor = if (isHighlight) highlightColor else defaultColor
+    val animatedColor by androidx.compose.animation.animateColorAsState(
+        targetValue = targetColor,
+        animationSpec = androidx.compose.animation.core.tween(durationMillis = 300)
+    )
+    val animatedPrimaryContainer by androidx.compose.animation.animateColorAsState(targetValue = MaterialTheme.colorScheme.primaryContainer, animationSpec = androidx.compose.animation.core.tween(300))
+    val animatedOnPrimaryContainer by androidx.compose.animation.animateColorAsState(targetValue = MaterialTheme.colorScheme.onPrimaryContainer, animationSpec = androidx.compose.animation.core.tween(300))
+    val animatedOnSurface by androidx.compose.animation.animateColorAsState(targetValue = MaterialTheme.colorScheme.onSurface, animationSpec = androidx.compose.animation.core.tween(300))
+    val animatedOnSurfaceVariant by androidx.compose.animation.animateColorAsState(targetValue = MaterialTheme.colorScheme.onSurfaceVariant, animationSpec = androidx.compose.animation.core.tween(300))
+    val animatedPrimary by androidx.compose.animation.animateColorAsState(targetValue = MaterialTheme.colorScheme.primary, animationSpec = androidx.compose.animation.core.tween(300))
+
     var mcqText by remember(existingMark?.mcqMarks) { mutableStateOf(existingMark?.mcqMarks?.toString() ?: "") }
     var writtenText by remember(existingMark?.writtenMarks) { mutableStateOf(existingMark?.writtenMarks?.toString() ?: "") }
     var practicalText by remember(existingMark?.practicalMarks) { mutableStateOf(existingMark?.practicalMarks?.toString() ?: "") }
@@ -411,6 +444,7 @@ fun MarkEntryRow(
         val finalMcq = if (mcqText.isEmpty()) existingMark?.mcqMarks else mcqParsed
         val finalWritten = if (writtenText.isEmpty()) existingMark?.writtenMarks else writtenParsed
         val finalPractical = if (practicalText.isEmpty()) existingMark?.practicalMarks else practicalParsed
+
         onSaveMark(finalMcq, finalWritten, finalPractical)
     }
 
@@ -427,14 +461,29 @@ fun MarkEntryRow(
         }
     }
 
+    val baseFieldColors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = animatedOnSurface,
+        unfocusedTextColor = animatedOnSurface,
+        focusedBorderColor = animatedPrimary,
+        unfocusedBorderColor = animatedOnSurfaceVariant,
+        focusedLabelColor = animatedPrimary,
+        unfocusedLabelColor = animatedOnSurfaceVariant
+    )
+
     val errorFieldColors = OutlinedTextFieldDefaults.colors(
         errorBorderColor = FailRed,
         errorLabelColor = FailRed,
-        errorCursorColor = FailRed
+        errorCursorColor = FailRed,
+        focusedTextColor = animatedOnSurface,
+        unfocusedTextColor = animatedOnSurface,
+        focusedLabelColor = animatedPrimary,
+        unfocusedLabelColor = animatedOnSurfaceVariant
     )
 
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = animatedColor),
         modifier = Modifier.fillMaxWidth().bringIntoViewRequester(rowBringIntoViewRequester)
     ) {
         Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
@@ -442,20 +491,20 @@ fun MarkEntryRow(
                 Box(
                     modifier = Modifier
                         .size(40.dp)
-                        .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                        .background(animatedPrimaryContainer, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = student.roll.toString(),
                         style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = animatedOnPrimaryContainer
                     )
                 }
                 Spacer(modifier = Modifier.width(16.dp))
-                Text("${student.roll} - ${student.name}", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                Text("${student.roll} - ${student.name}", style = MaterialTheme.typography.bodyLarge, color = animatedOnSurface, modifier = Modifier.weight(1f))
                 Text("Total: $total", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.tertiary)
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (subject.mcqMax != null) {
                     OutlinedTextField(
@@ -470,7 +519,7 @@ fun MarkEntryRow(
                         modifier = Modifier.weight(1f).onFocusEvent { mcqFocused = it.isFocused },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                         isError = mcqBelowPass,
-                        colors = errorFieldColors,
+                        colors = if (mcqBelowPass) errorFieldColors else baseFieldColors,
                         label = { Text("MCQ / ${subject.mcqMax}") },
                         singleLine = true
                     )
@@ -488,7 +537,7 @@ fun MarkEntryRow(
                         modifier = Modifier.weight(1f).onFocusEvent { writtenFocused = it.isFocused },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                         isError = writtenBelowPass,
-                        colors = errorFieldColors,
+                        colors = if (writtenBelowPass) errorFieldColors else baseFieldColors,
                         label = { Text("CQ / ${subject.writtenMax}") },
                         singleLine = true
                     )
@@ -506,7 +555,7 @@ fun MarkEntryRow(
                         modifier = Modifier.weight(1f).onFocusEvent { practicalFocused = it.isFocused },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                         isError = practicalBelowPass,
-                        colors = errorFieldColors,
+                        colors = if (practicalBelowPass) errorFieldColors else baseFieldColors,
                         label = { Text("Prac / ${subject.practicalMax}") },
                         singleLine = true
                     )
