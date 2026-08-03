@@ -12,10 +12,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import com.abutorab.marks9b.R
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.abutorab.marks9b.data.local.entity.SheetRole
 import com.abutorab.marks9b.ui.MarksViewModel
+
+private val GaladaFont = FontFamily(Font(R.font.galada))
 
 private data class MarksheetRowSpec(val displayName: String, val subjectResult: SubjectResult?)
 
@@ -112,9 +117,9 @@ fun MarksheetScreen(termId: Int, studentId: Int, viewModel: MarksViewModel, onBa
                     Column(modifier = Modifier.padding(vertical = 8.dp)) {
                         Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
                             LedgerHeaderCell("বিষয়", Modifier.weight(1f), TextAlign.Start)
-                            LedgerHeaderCell("MCQ", Modifier.width(42.dp))
-                            LedgerHeaderCell("CQ", Modifier.width(42.dp))
-                            LedgerHeaderCell("Prac", Modifier.width(42.dp))
+                            LedgerHeaderCell("নৈর্ব্যঃ", Modifier.width(42.dp))
+                            LedgerHeaderCell("রচনা", Modifier.width(42.dp))
+                            LedgerHeaderCell("ব্যঃ", Modifier.width(42.dp))
                             LedgerHeaderCell("মোট", Modifier.width(46.dp))
                             LedgerHeaderCell("গ্রেড", Modifier.width(44.dp))
                         }
@@ -150,6 +155,25 @@ fun MarksheetScreen(termId: Int, studentId: Int, viewModel: MarksViewModel, onBa
                             }
                             if (index < marksheetRows.lastIndex) HorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp))
                         }
+                        HorizontalDivider(thickness = 2.dp)
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "মোট নম্বর-",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f),
+                                textAlign = TextAlign.End
+                            )
+                            LedgerValueCell("", Modifier.width(42.dp))
+                            LedgerValueCell("", Modifier.width(42.dp))
+                            LedgerValueCell("", Modifier.width(42.dp))
+                            LedgerValueCell("${result.grandTotal}", Modifier.width(46.dp), bold = true)
+                            LedgerValueCell("", Modifier.width(44.dp))
+                        }
                     }
                 }
                 Spacer(Modifier.height(16.dp))
@@ -161,7 +185,7 @@ fun MarksheetScreen(termId: Int, studentId: Int, viewModel: MarksViewModel, onBa
 @Composable
 private fun SummaryStat(label: String, value: String, valueColor: Color = MaterialTheme.colorScheme.tertiary) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = valueColor)
+        Text(NumeralFormat.localize(value, true), style = MaterialTheme.typography.headlineSmall, fontFamily = GaladaFont, color = valueColor)
         Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -181,8 +205,9 @@ private fun LedgerHeaderCell(text: String, modifier: Modifier = Modifier, align:
 @Composable
 private fun LedgerValueCell(text: String, modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.onSurface, bold: Boolean = false) {
     Text(
-        text,
-        style = MaterialTheme.typography.bodyMedium,
+        NumeralFormat.localize(text, true),
+        style = MaterialTheme.typography.bodyLarge,
+        fontFamily = GaladaFont,
         fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
         color = color,
         textAlign = TextAlign.Center,
