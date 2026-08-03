@@ -6,21 +6,26 @@ import org.robolectric.RobolectricTestRunner
 import androidx.compose.ui.test.junit4.createComposeRule
 import org.junit.Rule
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.compose.material3.Text
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.Font
-import com.abutorab.marks9b.R
+import com.abutorab.marks9b.ui.screens.MarksheetScreen
+import androidx.test.core.app.ApplicationProvider
+import com.abutorab.marks9b.ui.MarksViewModel
+import com.abutorab.marks9b.data.local.MarksDatabase
+import com.abutorab.marks9b.data.repository.MarksRepository
 
 @RunWith(AndroidJUnit4::class)
 class MarksheetCrashTest {
     @get:Rule val composeTestRule = createComposeRule()
 
     @Test
-    fun testFontLoading() {
+    fun testMarksheetRendering() {
         var error: Throwable? = null
         try {
+            val app = ApplicationProvider.getApplicationContext<android.app.Application>()
+            val db = MarksDatabase.getDatabase(app)
+            val repository = MarksRepository(db.yearDao(), db.termDao(), db.studentDao(), db.subjectDao(), db.markDao())
+            val viewModel = MarksViewModel(app, repository)
             composeTestRule.setContent {
-                Text("Hello", fontFamily = FontFamily(Font(R.font.galada)))
+                MarksheetScreen(termId = 1, studentId = 1, viewModel = viewModel, onBack = {})
             }
         } catch (e: Throwable) {
             error = e
