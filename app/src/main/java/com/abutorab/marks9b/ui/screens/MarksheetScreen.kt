@@ -20,7 +20,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.abutorab.marks9b.data.local.entity.SheetRole
 import com.abutorab.marks9b.ui.MarksViewModel
 
-private val GaladaFont = FontFamily(Font(R.font.galada))
+private val GaladaFont = FontFamily(
+    Font(R.font.galada, FontWeight.Light),
+    Font(R.font.galada, FontWeight.Normal),
+    Font(R.font.galada, FontWeight.Medium),
+    Font(R.font.galada, FontWeight.SemiBold),
+    Font(R.font.galada, FontWeight.Bold),
+    Font(R.font.galada, FontWeight.ExtraBold)
+)
 
 private data class MarksheetRowSpec(val displayName: String, val subjectResult: SubjectResult?)
 
