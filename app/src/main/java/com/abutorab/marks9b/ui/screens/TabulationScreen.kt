@@ -155,13 +155,14 @@ fun TabulationScreen(termId: Int, viewModel: MarksViewModel, onNavigateToMarkshe
                                         DataCell(text, slot.width, color = cellColor)
                                     }
                                     DataCell(result.grandTotal.toString(), 64.dp)
-                                    DataCell(result.gpa?.let { "%.2f".format(it) } ?: "-", 56.dp, color = MaterialTheme.colorScheme.tertiary)
+                                    DataCell(result.gpa?.let { "%.2f".format(it) } ?: "-", 56.dp, color = MaterialTheme.colorScheme.tertiary, localize = false)
                                     DataCell(
                                         result.letterGrade.ifEmpty { "-" },
                                         56.dp,
-                                        color = if (result.letterGrade == "F") FailRed else MaterialTheme.colorScheme.onSurface
+                                        color = if (result.letterGrade == "F") FailRed else MaterialTheme.colorScheme.onSurface,
+                                        localize = false
                                     )
-                                    DataCell(result.position?.toString() ?: "-", 48.dp)
+                                    DataCell(result.position?.toString() ?: "-", 48.dp, localize = false)
                                 }
                             }
                         } else {
@@ -207,11 +208,12 @@ private fun HeaderCell(text: String, width: Dp, alignStart: Boolean = false) {
 }
 
 @Composable
-private fun DataCell(text: String, width: Dp, alignStart: Boolean = false, color: Color = MaterialTheme.colorScheme.onSurface, fontWeight: FontWeight = FontWeight.Bold) {
+private fun DataCell(text: String, width: Dp, alignStart: Boolean = false, color: Color = MaterialTheme.colorScheme.onSurface, fontWeight: FontWeight = FontWeight.Bold, localize: Boolean = true) {
     Box(modifier = Modifier.width(width).padding(horizontal = 4.dp), contentAlignment = if (alignStart) Alignment.CenterStart else Alignment.Center) {
         Text(
-            text,
+            NumeralFormat.localize(text, localize),
             style = MaterialTheme.typography.bodyLarge,
+            fontFamily = if (localize) com.abutorab.marks9b.ui.theme.GaladaFont else null,
             color = color,
             fontWeight = fontWeight,
             maxLines = 1,

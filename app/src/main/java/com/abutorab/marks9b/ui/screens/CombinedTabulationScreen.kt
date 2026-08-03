@@ -252,13 +252,13 @@ private fun StackedRow(
                     DataCell(text, slot.width, color = cellColor)
                 }
                 DataCell(result?.grandTotal?.toString() ?: "-", 64.dp, fontWeight = FontWeight.Bold)
-                DataCell(result?.gpa?.let { "%.2f".format(it) } ?: "-", 56.dp, color = MaterialTheme.colorScheme.tertiary)
+                DataCell(result?.gpa?.let { "%.2f".format(it) } ?: "-", 56.dp, color = MaterialTheme.colorScheme.tertiary, localize = false)
                 DataCell(
                     result?.letterGrade?.ifEmpty { "-" } ?: "-", 56.dp,
                     color = if (result?.letterGrade == "F") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold, localize = false
                 )
-                DataCell(result?.position?.toString() ?: "-", 48.dp)
+                DataCell(result?.position?.toString() ?: "-", 48.dp, localize = false)
             }
         }
     }
@@ -291,11 +291,12 @@ private fun HeaderCell(text: String, width: Dp, alignStart: Boolean = false) {
 }
 
 @Composable
-private fun DataCell(text: String, width: Dp, alignStart: Boolean = false, color: Color = MaterialTheme.colorScheme.onSurface, fontWeight: FontWeight = FontWeight.Normal) {
+private fun DataCell(text: String, width: Dp, alignStart: Boolean = false, color: Color = MaterialTheme.colorScheme.onSurface, fontWeight: FontWeight = FontWeight.Normal, localize: Boolean = true) {
     Box(modifier = Modifier.width(width).padding(horizontal = 4.dp), contentAlignment = if (alignStart) Alignment.CenterStart else Alignment.Center) {
         Text(
-            text,
+            NumeralFormat.localize(text, localize),
             style = MaterialTheme.typography.bodyMedium,
+            fontFamily = if (localize) com.abutorab.marks9b.ui.theme.GaladaFont else null,
             color = color,
             fontWeight = fontWeight,
             maxLines = 1,

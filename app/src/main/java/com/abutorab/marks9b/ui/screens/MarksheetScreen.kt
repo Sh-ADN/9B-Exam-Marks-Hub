@@ -90,13 +90,14 @@ fun MarksheetScreen(termId: Int, studentId: Int, viewModel: MarksViewModel, onBa
                     Spacer(Modifier.height(16.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                         SummaryStat("Total", result.grandTotal.toString())
-                        SummaryStat("GPA", result.gpa?.let { "%.2f".format(it) } ?: "-")
+                        SummaryStat("GPA", result.gpa?.let { "%.2f".format(it) } ?: "-", localize = false)
                         SummaryStat(
                             "Grade",
                             result.letterGrade.ifEmpty { "-" },
-                            valueColor = if (result.letterGrade == "F") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary
+                            valueColor = if (result.letterGrade == "F") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary,
+                            localize = false
                         )
-                        SummaryStat("Rank", result.position?.toString() ?: "-")
+                        SummaryStat("Rank", result.position?.toString() ?: "-", localize = false)
                     }
                 }
             }
@@ -179,9 +180,14 @@ fun MarksheetScreen(termId: Int, studentId: Int, viewModel: MarksViewModel, onBa
 }
 
 @Composable
-private fun SummaryStat(label: String, value: String, valueColor: Color = MaterialTheme.colorScheme.tertiary) {
+private fun SummaryStat(label: String, value: String, valueColor: Color = MaterialTheme.colorScheme.tertiary, localize: Boolean = true) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(NumeralFormat.localize(value, true), style = MaterialTheme.typography.headlineSmall, color = valueColor)
+        Text(
+            NumeralFormat.localize(value, localize),
+            style = MaterialTheme.typography.headlineSmall,
+            fontFamily = if (localize) com.abutorab.marks9b.ui.theme.GaladaFont else null,
+            color = valueColor
+        )
         Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -203,6 +209,7 @@ private fun LedgerValueCell(text: String, modifier: Modifier = Modifier, color: 
     Text(
         NumeralFormat.localize(text, true),
         style = MaterialTheme.typography.bodyLarge,
+        fontFamily = com.abutorab.marks9b.ui.theme.GaladaFont,
         color = color,
         textAlign = TextAlign.Center,
         modifier = modifier
