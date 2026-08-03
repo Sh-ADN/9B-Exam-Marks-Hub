@@ -2,13 +2,9 @@ package com.abutorab.marks9b.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import com.abutorab.marks9b.R
-
-val GaladaFont = FontFamily(Font(R.font.galada))
 
 // Set of Material typography styles to start with
 val Typography =

@@ -185,7 +185,7 @@ private fun SummaryStat(label: String, value: String, valueColor: Color = Materi
         Text(
             NumeralFormat.localize(value, localize),
             style = MaterialTheme.typography.headlineSmall,
-            fontFamily = if (localize) com.abutorab.marks9b.ui.theme.GaladaFont else null,
+            
             color = valueColor
         )
         Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -209,7 +209,7 @@ private fun LedgerValueCell(text: String, modifier: Modifier = Modifier, color: 
     Text(
         NumeralFormat.localize(text, true),
         style = MaterialTheme.typography.bodyLarge,
-        fontFamily = com.abutorab.marks9b.ui.theme.GaladaFont,
+        
         color = color,
         textAlign = TextAlign.Center,
         modifier = modifier

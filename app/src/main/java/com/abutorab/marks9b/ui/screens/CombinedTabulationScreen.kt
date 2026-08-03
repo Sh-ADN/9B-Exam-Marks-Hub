@@ -296,7 +296,7 @@ private fun DataCell(text: String, width: Dp, alignStart: Boolean = false, color
         Text(
             NumeralFormat.localize(text, localize),
             style = MaterialTheme.typography.bodyMedium,
-            fontFamily = if (localize) com.abutorab.marks9b.ui.theme.GaladaFont else null,
+            
             color = color,
             fontWeight = fontWeight,
             maxLines = 1,
