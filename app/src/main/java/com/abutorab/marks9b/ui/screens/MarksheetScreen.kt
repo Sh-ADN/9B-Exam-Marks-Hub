@@ -104,14 +104,13 @@ fun MarksheetScreen(termId: Int, studentId: Int, viewModel: MarksViewModel, onBa
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp)
             ) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                    Column(modifier = Modifier.padding(top = 8.dp)) {
                         Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
                             LedgerHeaderCell("বিষয়", Modifier.weight(1f), TextAlign.Start)
                             LedgerHeaderCell("নৈর্ব্যঃ", Modifier.width(42.dp))
@@ -121,7 +120,12 @@ fun MarksheetScreen(termId: Int, studentId: Int, viewModel: MarksViewModel, onBa
                             LedgerHeaderCell("গ্রেড", Modifier.width(44.dp))
                         }
                         HorizontalDivider()
-                        marksheetRows.forEachIndexed { index, rowSpec ->
+                        Column(
+                            modifier = Modifier
+                                .weight(1f, fill = false)
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            marksheetRows.forEachIndexed { index, rowSpec ->
                             val sr = rowSpec.subjectResult
                             val isFailed = sr?.letterGrade == "F"
                             Row(
@@ -171,6 +175,8 @@ fun MarksheetScreen(termId: Int, studentId: Int, viewModel: MarksViewModel, onBa
                             LedgerValueCell("${result.grandTotal}", Modifier.width(46.dp), bold = true)
                             LedgerValueCell("", Modifier.width(44.dp))
                         }
+                        Spacer(Modifier.height(8.dp))
+                    }
                     }
                 }
                 Spacer(Modifier.height(16.dp))
