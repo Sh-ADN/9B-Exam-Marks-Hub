@@ -12,22 +12,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
 import com.abutorab.marks9b.R
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.abutorab.marks9b.data.local.entity.SheetRole
 import com.abutorab.marks9b.ui.MarksViewModel
-
-private val GaladaFont = FontFamily(
-    Font(R.font.galada, FontWeight.Light),
-    Font(R.font.galada, FontWeight.Normal),
-    Font(R.font.galada, FontWeight.Medium),
-    Font(R.font.galada, FontWeight.SemiBold),
-    Font(R.font.galada, FontWeight.Bold),
-    Font(R.font.galada, FontWeight.ExtraBold)
-)
 
 private data class MarksheetRowSpec(val displayName: String, val subjectResult: SubjectResult?)
 
@@ -192,7 +181,7 @@ fun MarksheetScreen(termId: Int, studentId: Int, viewModel: MarksViewModel, onBa
 @Composable
 private fun SummaryStat(label: String, value: String, valueColor: Color = MaterialTheme.colorScheme.tertiary) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(NumeralFormat.localize(value, true), style = MaterialTheme.typography.headlineSmall, fontFamily = GaladaFont, color = valueColor)
+        Text(NumeralFormat.localize(value, true), style = MaterialTheme.typography.headlineSmall, color = valueColor)
         Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -214,8 +203,6 @@ private fun LedgerValueCell(text: String, modifier: Modifier = Modifier, color: 
     Text(
         NumeralFormat.localize(text, true),
         style = MaterialTheme.typography.bodyLarge,
-        fontFamily = GaladaFont,
-        fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
         color = color,
         textAlign = TextAlign.Center,
         modifier = modifier
