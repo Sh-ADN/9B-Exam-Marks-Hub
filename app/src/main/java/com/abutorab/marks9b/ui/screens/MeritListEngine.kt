@@ -63,8 +63,19 @@ object MeritListEngine {
         val ranked = eligible
             .map { result ->
                 val betterCount = eligible.count {
-                    it.failedCount < result.failedCount ||
-                        (it.failedCount == result.failedCount && it.grandTotal > result.grandTotal)
+                    if (it.failedCount < result.failedCount) {
+                        true
+                    } else if (it.failedCount == result.failedCount) {
+                        if (result.failedCount == 0) {
+                            val itGpa = it.gpa ?: 0.0
+                            val resultGpa = result.gpa ?: 0.0
+                            (itGpa > resultGpa) || (itGpa == resultGpa && it.grandTotal > result.grandTotal)
+                        } else {
+                            it.grandTotal > result.grandTotal
+                        }
+                    } else {
+                        false
+                    }
                 }
                 MeritListEntry(
                     rank = betterCount + 1,

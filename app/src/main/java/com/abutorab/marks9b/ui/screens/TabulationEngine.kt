@@ -271,8 +271,21 @@ object TabulationEngine {
             if (result.grandTotal == 0) {
                 result.copy(position = null)
             } else {
-                val rank = studentResults.count { it.failedCount < result.failedCount } +
-                        studentResults.count { it.failedCount == result.failedCount && it.grandTotal > result.grandTotal } + 1
+                val rank = studentResults.count {
+                    if (it.failedCount < result.failedCount) {
+                        true
+                    } else if (it.failedCount == result.failedCount) {
+                        if (result.failedCount == 0) {
+                            val itGpa = it.gpa ?: 0.0
+                            val resultGpa = result.gpa ?: 0.0
+                            (itGpa > resultGpa) || (itGpa == resultGpa && it.grandTotal > result.grandTotal)
+                        } else {
+                            it.grandTotal > result.grandTotal
+                        }
+                    } else {
+                        false
+                    }
+                } + 1
                 result.copy(position = rank)
             }
         }
@@ -550,8 +563,21 @@ object TabulationEngine {
             if (result.grandTotal == 0.0) {
                 result.copy(position = null)
             } else {
-                val rank = studentResults.count { it.failedCount < result.failedCount } +
-                        studentResults.count { it.failedCount == result.failedCount && it.grandTotal > result.grandTotal } + 1
+                val rank = studentResults.count {
+                    if (it.failedCount < result.failedCount) {
+                        true
+                    } else if (it.failedCount == result.failedCount) {
+                        if (result.failedCount == 0) {
+                            val itGpa = it.gpa ?: 0.0
+                            val resultGpa = result.gpa ?: 0.0
+                            (itGpa > resultGpa) || (itGpa == resultGpa && it.grandTotal > result.grandTotal)
+                        } else {
+                            it.grandTotal > result.grandTotal
+                        }
+                    } else {
+                        false
+                    }
+                } + 1
                 result.copy(position = rank)
             }
         }
