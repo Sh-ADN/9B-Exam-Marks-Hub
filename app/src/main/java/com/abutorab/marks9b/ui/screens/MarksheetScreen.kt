@@ -128,8 +128,9 @@ fun MarksheetScreen(termId: Int, studentId: Int, viewModel: MarksViewModel, onBa
                             marksheetRows.forEachIndexed { index, rowSpec ->
                             val sr = rowSpec.subjectResult
                             val isFailed = sr?.letterGrade == "F"
+                            val componentCount = sr?.subject?.let { listOfNotNull(it.mcqMax, it.writtenMax, it.practicalMax).size } ?: 0
                             Row(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
@@ -138,11 +139,20 @@ fun MarksheetScreen(termId: Int, studentId: Int, viewModel: MarksViewModel, onBa
                                     color = if (sr == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.weight(1f)
                                 )
-                                LedgerValueCell(sr?.mcqMarks?.toString() ?: "-", Modifier.width(42.dp))
-                                LedgerValueCell(sr?.writtenMarks?.toString() ?: "-", Modifier.width(42.dp))
-                                LedgerValueCell(sr?.practicalMarks?.toString() ?: "-", Modifier.width(42.dp))
                                 LedgerValueCell(
-                                    if (sr == null || sr.total == 0) "-" else "${sr.total}",
+                                    formatMark(sr?.mcqMarks), Modifier.width(42.dp),
+                                    color = if (isComponentFailed(sr?.mcqMarks, sr?.subject?.mcqMax, componentCount, isFailed)) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                                )
+                                LedgerValueCell(
+                                    formatMark(sr?.writtenMarks), Modifier.width(42.dp),
+                                    color = if (isComponentFailed(sr?.writtenMarks, sr?.subject?.writtenMax, componentCount, isFailed)) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                                )
+                                LedgerValueCell(
+                                    formatMark(sr?.practicalMarks), Modifier.width(42.dp),
+                                    color = if (isComponentFailed(sr?.practicalMarks, sr?.subject?.practicalMax, componentCount, isFailed)) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                                )
+                                LedgerValueCell(
+                                    if (sr == null || sr.total == 0) "-" else formatMark(sr.total),
                                     Modifier.width(46.dp),
                                     color = if (isFailed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                                     bold = sr != null
@@ -158,7 +168,7 @@ fun MarksheetScreen(termId: Int, studentId: Int, viewModel: MarksViewModel, onBa
                         }
                         HorizontalDivider(thickness = 2.dp)
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
@@ -220,4 +230,16 @@ private fun LedgerValueCell(text: String, modifier: Modifier = Modifier, color: 
         textAlign = TextAlign.Center,
         modifier = modifier
     )
+}
+
+private fun formatMark(mark: Int?): String {
+    if (mark == null) return "-"
+    return mark.toString().padStart(2, '0')
+}
+
+private fun isComponentFailed(mark: Int?, max: Int?, componentCount: Int, subjectFailed: Boolean): Boolean {
+    if (max == null) return false
+    if (componentCount <= 1) return subjectFailed
+    val threshold = kotlin.math.round(max / 3.0).toInt()
+    return (mark ?: 0) < threshold
 }
